@@ -1,0 +1,5 @@
+2. Penyesuaian di evacuation_abm.py
+Karena sekarang script ini berada di dalam paket app.core, pastikan import internalnya (seperti DEMManager jika ada file lain) disesuaikan. Jika DEMManager ada di file berbeda, gunakan from app.core.dem_file import DEMManager.
+
+uvicorn app.main:app --reload
+Uvicorn running on http://127.0.0.1:8000

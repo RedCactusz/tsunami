@@ -12,3 +12,46 @@ WebGIS_Tsunami/
 ├── tests/                  # Skrip untuk testing algoritma
 ├── requirements.txt        # Daftar library (FastAPI, Geopandas, dll)
 └── README.md               # Dokumentasi proyek
+
+WebGIS_Tsunami/
+├── data/                             # Storage Data Spasial Mentah
+│   ├── bantul_dem_points.json        # Pindahan BANTUL_POINTS (Point Cloud)
+│   ├── fault_line.geojson            # Pindahan FAULT_GJ (Garis Sesar)
+│   ├── administrasi_desa.geojson     # Batas wilayah desa Bantul
+│   └── jaringan_jalan_bantul.json    # Graph nodes/edges untuk ABM
+│
+├── src/
+│   ├── backend/                      # Logic Server (Python)
+│   │   ├── main.py                   # Entry point FastAPI & Route API
+│   │   ├── database/
+│   │   │   └── connection.py         # Koneksi ke PostGIS (jika ada)
+│   │   └── simulation/
+│   │       ├── swe_engine.py         # Solver Shallow Water Equations (Numerik)
+│   │       ├── evacuation_abm.py     # Logika ABM (Refactored Patch Fix-7)
+│   │       └── impact_analyzer.py    # Kalkulasi statistik penduduk terdampak
+│   │
+│   └── frontend/                     # UI & Visualization (Next.js/TSX)
+│       ├── components/               # Komponen Modular (Pecahan HTML)
+│       │   ├── Map/
+│       │   │   ├── MapContainer.tsx  # Inisialisasi Leaflet & Base Layers
+│       │   │   ├── TsunamiOverlay.tsx# Layer Inundasi & Genangan
+│       │   │   └── AgentOverlay.tsx  # Animasi pergerakan Agen ABM
+│       │   ├── Controls/
+│       │   │   ├── ParamsForm.tsx    # Input Mw, Kedalaman, Mekanisme Sesar
+│       │   │   └── TimeSlider.tsx    # Playback timeline simulasi
+│       │   └── Analytics/
+│       │       ├── ImpactChart.tsx   # Grafik Donat Chart.js
+│       │       ├── VillageTable.tsx  # Tabel dampak per kelurahan
+│       │       └── ExportPanel.tsx   # Tombol Export (CSV, GeoJSON, TXT)
+│       ├── hooks/
+│       │   ├── useSimulation.ts      # Hook untuk fetch hasil simulasi backend
+│       │   └── useAnimation.ts       # Hook untuk handle frame-by-frame ABM
+│       └── services/
+│           └── api.ts                # Axios/Fetch wrapper ke FastAPI
+│
+├── tests/                            # Validasi Algoritma
+│   ├── test_swe.py                   # Uji akurasi perambatan gelombang
+│   └── test_abm.py                   # Uji integritas routing rute evakuasi
+│
+├── requirements.txt                  # Library: FastAPI, Geopandas, Scipy, dsb.
+└── README.md                         # Dokumentasi teknis & cara instalasi
