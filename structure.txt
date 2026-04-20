@@ -1,0 +1,14 @@
+WebGIS_Tsunami/
+├── data/                   # Data mentah (SHP, GeoJSON, DEM)
+├── src/                    # Source code utama
+│   ├── backend/            # API & Analisis (Python)
+│   │   ├── main.py         # Entry point API
+│   │   ├── simulation/     # Lokasi evacuation_abm.py yang sudah direfaktor
+│   │   └── database/       # Koneksi ke PostGIS/Data
+│   └── frontend/           # Tampilan Web (HTML/JS/React)
+│       ├── assets/         # Logo BIG, UGM, Icon jalan kaki, dll.
+│       ├── components/     # Modul peta, modul grafik hasil simulasi
+│       └── styles/         # CSS/Styling
+├── tests/                  # Skrip untuk testing algoritma
+├── requirements.txt        # Daftar library (FastAPI, Geopandas, dll)
+└── README.md               # Dokumentasi proyek
