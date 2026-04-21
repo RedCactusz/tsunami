@@ -1,13 +1,21 @@
-# Python
+# --- Python (Backend) ---
 __pycache__/
 venv/
+.venv/
 *.py[cod]
+*.env
+# Abaikan data mentah berukuran besar
+/data/*.txt
+/data/*.csv
 
-# Node (Next.js)
-node_modules/
-.next/
-out/
+# --- Node.js (Frontend) ---
+src/frontend/node_modules/
+src/frontend/.next/
+src/frontend/out/
+src/frontend/build/
+src/frontend/.env*
 
-# OS
+# --- OS & Misc ---
 .DS_Store
 Thumbs.db
+*.pem
