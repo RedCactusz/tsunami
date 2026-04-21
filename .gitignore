@@ -21,3 +21,4 @@ Thumbs.db
 *.pem
 
 old_project/
+data/
