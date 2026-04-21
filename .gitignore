@@ -19,3 +19,5 @@ src/frontend/.env*
 .DS_Store
 Thumbs.db
 *.pem
+
+old_project/

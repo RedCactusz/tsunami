@@ -60,9 +60,6 @@ WebGIS_Tsunami/
 ░▒▓   …/tsunami   main !?   02:27  
 ❯ tree -I "node_modules|venv|.git|.next"
 .
-├── backend
-│   └── app
-│       └── main.py
 ├── baris-2446-2669.txt
 ├── data
 ├── notes.txt
