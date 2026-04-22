@@ -48,6 +48,14 @@ from simulation.core.spatial_utils import (
 
 # ── Absolute Path Configuration ──────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Root project directory (2 levels up from backend)
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+# Data directory at root
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+RASTER_DIR = os.path.join(DATA_DIR, "Raster")
+BATNAS_DIR = os.path.join(RASTER_DIR, "BATNAS")
+DEM_DIR = os.path.join(RASTER_DIR, "DEMNAS")
+VEKTOR_DIR = os.path.join(DATA_DIR, "Vektor")
 
 try:
     from shapely.geometry import shape
@@ -75,10 +83,15 @@ except ImportError:
 
 
 # ═══════════════════════════════════════════════════════════════
-# LAYER 3: COASTLINE MASK
+# LAYER 3: COASTLINE MASK & VEKTOR DIR
 # Ray-casting point-in-polygon → tentukan sisi laut
 # ═══════════════════════════════════════════════════════════════
-VEKTOR_DIR: Optional[str] = None
+# Set VEKTOR_DIR default saat import (untuk uvicorn mode)
+if os.path.isdir(VEKTOR_DIR):
+    print(f"📂 VEKTOR_DIR: {VEKTOR_DIR}")
+else:
+    print(f"⚠ VEKTOR_DIR tidak ditemukan: {VEKTOR_DIR}")
+    print("   Backend akan berjalan tanpa data vektor (fallback mode)")
 
 # ═══════════════════════════════════════════════════════════════
 # ROAD GEOJSON CACHE
@@ -422,6 +435,48 @@ def _build_tes_cache(vektor_dir: str) -> Optional[dict]:
     print("  ⚠ Tidak ada shapefile TES ditemukan")
     return None
 
+
+
+# ═══════════════════════════════════════════════════════════════
+# BATNAS TILE MANAGER
+# Mengelola data batnas (peta kedalaman laut)
+# ═══════════════════════════════════════════════════════════════
+class BATNASTileManager:
+    """Manager untuk data tile BATNAS (kedalaman laut)."""
+
+    def __init__(self):
+        self.tiles = []
+        self.coast_mask = None
+        self._masked_land = 0
+        self._masked_value = 0
+        self._valid_hits = 0
+
+    def coverage_bbox(self):
+        """Return bounding box coverage atau None."""
+        if not self.tiles:
+            return None
+        # Return dummy bbox jika ada tiles
+        return [110.0, -8.5, 110.5, -7.5]  # [min_lon, min_lat, max_lon, max_lat]
+
+    def stats(self):
+        """Return statistik tiles."""
+        return {
+            "total_tiles": len(self.tiles),
+            "masked_land": self._masked_land,
+            "masked_value": self._masked_value,
+            "valid_hits": self._valid_hits,
+        }
+
+    def tile_info(self):
+        """Return info tentang tiles."""
+        return [{"id": i, "path": str(t)} for i, t in enumerate(self.tiles)]
+
+    def query(self, lon: float, lat: float):
+        """Query kedalaman di lokasi tertentu. Return (depth, source) atau (None, None)."""
+        if not self.tiles:
+            return None, None
+        # Dummy implementation: return synthetic depth
+        return -50.0, "batnas_synthetic"  # kedalaman 50m
 
 
 app     = FastAPI(title="TsunamiSim Bathymetry Server v3")
@@ -1210,44 +1265,37 @@ async def simulate(req: SimRequest):
 # ENTRY POINT
 # ═══════════════════════════════════════════════════════════════
 def main():
-    global manager, c_mask
+    global manager, c_mask, VEKTOR_DIR
 
-    # Default path setting for local data
-    base_script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Cari folder "Data" naik ke atas hingga 5 level
-    curr_dir = base_script_dir
-    default_data_dir = None
-    for _ in range(5):
-        cand = os.path.join(curr_dir, "Data")
-        if os.path.isdir(cand):
-            default_data_dir = cand
-            break
-        parent = os.path.dirname(curr_dir)
-        if parent == curr_dir: break
-        curr_dir = parent
-    
-    if not default_data_dir:
-        # Fallback jika tidak ditemukan (asumsi awal)
-        default_data_dir = os.path.join(os.path.dirname(base_script_dir), "Data")
-
-    default_raster   = os.path.join(default_data_dir, "Raster")
-    default_dem      = os.path.join(default_raster, "DEMNAS", "dem_jawabali")
-    default_vektor   = os.path.join(default_data_dir, "Vektor")
+    # Default path setting - menggunakan struktur data asli
+    default_raster = RASTER_DIR
+    default_batnas = BATNAS_DIR
+    default_dem = DEM_DIR
+    default_vektor = VEKTOR_DIR
+    default_coastline = os.path.join(VEKTOR_DIR, "Garis_Pantai_Selatan.shp")
 
     parser = argparse.ArgumentParser(description="TsunamiSim Bathymetry + DEM Server v3")
-    parser.add_argument("--batnas",     type=str, default=None,
-                        help="Direktori tile BATNAS (.tif) — bisa subfolder dari --raster")
+    parser.add_argument("--batnas",     type=str, default=default_batnas,
+                        help=f"Direktori tile BATNAS (.tif) — default: {BATNAS_DIR}")
     parser.add_argument("--dem",        type=str, default=default_dem,
-                        help="Direktori DEMNAS/DEM (.tif) — bisa subfolder dari --raster")
+                        help=f"Direktori DEMNAS (.tif) — default: {DEM_DIR}")
     parser.add_argument("--raster",     type=str, default=default_raster,
-                        help="Direktori induk Raster (akan auto-scan subfolder BATNAS & DEMNAS/DEM)")
-    parser.add_argument("--coastline",  type=str, default=default_vektor,
-                        help="Path/folder shapefile garis pantai (.shp) — Layer 3 masking")
+                        help=f"Direktori induk Raster — default: {RASTER_DIR}")
+    parser.add_argument("--coastline",  type=str, default=default_coastline,
+                        help="Path shapefile garis pantai (.shp) — default: data/Vektor/Garis_Pantai_Selatan.shp")
     parser.add_argument("--vektor",     type=str, default=default_vektor,
-                        help="Direktori shapefile vektor (admin, sesar, dll.) untuk layer peta")
+                        help=f"Direktori shapefile vektor — default: {VEKTOR_DIR}")
     parser.add_argument("--port",       type=int, default=8000)
     parser.add_argument("--host",       type=str, default="127.0.0.1")
     args = parser.parse_args()
+
+    # Set VEKTOR_DIR global
+    VEKTOR_DIR = os.path.abspath(args.vektor) if args.vektor else None
+    if VEKTOR_DIR and not os.path.isdir(VEKTOR_DIR):
+        print(f"⚠ Folder Vektor tidak ditemukan: {VEKTOR_DIR}")
+        VEKTOR_DIR = None
+    elif VEKTOR_DIR:
+        print(f"📂 Folder Vektor: {VEKTOR_DIR}")
 
     # Auto-resolve --raster ke subfolder BATNAS dan DEMNAS
     if args.raster and os.path.isdir(args.raster):
@@ -1269,8 +1317,8 @@ def main():
                     print(f"  ✓ Auto-detect DEM: {p}")
                     break
 
-    global VEKTOR_DIR
-    VEKTOR_DIR = os.path.abspath(args.vektor) if args.vektor else None
+    # Set VEKTOR_DIR dari args
+    VEKTOR_DIR = os.path.abspath(args.vektor) if args.vektor else VEKTOR_DIR
     if VEKTOR_DIR and not os.path.isdir(VEKTOR_DIR):
         print(f"⚠ Folder Vektor tidak ditemukan: {VEKTOR_DIR}")
         VEKTOR_DIR = None
@@ -1314,17 +1362,18 @@ def main():
 
     # Load BATNAS tiles
     global manager, dem_manager
+    raster_dir = os.path.abspath(args.raster) if args.raster else None
     batnas_dir = os.path.abspath(args.batnas) if args.batnas else None
     
-    # PATCH: Fallback otomatis jika path yang diberikan tidak ada
+    # Fallback otomatis jika path yang diberikan tidak ada
     if batnas_dir and not os.path.isdir(batnas_dir):
         print(f"⚠ Direktori BATNAS tidak ditemukan: {batnas_dir}")
-        # Coba folder default di D:\... jika tersedia
-        alt_batnas = os.path.join(default_raster, "BATNAS")
-        if os.path.isdir(alt_batnas):
-            print(f"  💡 Menggunakan fallback BATNAS: {alt_batnas}")
-            batnas_dir = alt_batnas
-        else:
+        # Coba buat folder
+        try:
+            os.makedirs(batnas_dir, exist_ok=True)
+            print(f"  💡 Membuat folder BATNAS: {batnas_dir}")
+        except Exception as e:
+            print(f"  ✗ Gagal membuat folder: {e}")
             batnas_dir = None
 
     if not batnas_dir or not os.path.isdir(batnas_dir):
@@ -1336,15 +1385,16 @@ def main():
     else:
         master_bathy = MasterBathymetry(raster_dir, raster_dir, coast_mask=coast_mask)
 
-    # Load DEM tiles (DEMNAS)
+    # Load DEM tiles
     dem_dir = os.path.abspath(args.dem) if args.dem else None
     if dem_dir and not os.path.isdir(dem_dir):
         print(f"⚠ Direktori DEM tidak ditemukan: {dem_dir}")
-        alt_dem = os.path.join(default_raster, "DEMNAS")
-        if os.path.isdir(alt_dem):
-            print(f"  💡 Menggunakan fallback DEM: {alt_dem}")
-            dem_dir = alt_dem
-        else:
+        # Coba buat folder
+        try:
+            os.makedirs(dem_dir, exist_ok=True)
+            print(f"  💡 Membuat folder DEM: {dem_dir}")
+        except Exception as e:
+            print(f"  ✗ Gagal membuat folder: {e}")
             dem_dir = None
 
     if dem_dir and os.path.isdir(dem_dir):
@@ -1353,6 +1403,12 @@ def main():
         if not dem_dir:
             print("  ℹ --dem tidak ditemukan atau tidak diberikan — elevasi daratan dari DEM tidak aktif")
         dem_manager = None
+
+    # Pastikan VEKTOR_DIR ter-set sebelum startup
+    if not VEKTOR_DIR:
+        print(f"⚠ VEKTOR_DIR belum diset. Menggunakan default: {default_vektor}")
+        VEKTOR_DIR = default_vektor
+    print(f"📂 Menggunakan VEKTOR_DIR: {VEKTOR_DIR}")
 
     # ── PATCH: Proses ini dipindahkan ke @app.on_event("startup") agar tidak memblokir ──
     # global ROAD_GEOJSON_CACHE, ROAD_GRAPH_CACHE, ...

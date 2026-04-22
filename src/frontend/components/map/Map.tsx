@@ -23,30 +23,9 @@ interface MapProps {
 const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const basemapLayersRef = useRef<any>({});
   const [currentBasemap, setCurrentBasemap] = useState('osm');
   const [showBasemapDropdown, setShowBasemapDropdown] = useState(false);
-
-  // Basemap tile layers
-  const getBasemapLayers = () => {
-    if (!L || !isLeafletAvailable) return {};
-    return {
-      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 20,
-        className: 'leaflet-tile'
-      }),
-      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri',
-        maxZoom: 18,
-        className: 'leaflet-tile'
-      }),
-      terrain: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri',
-        maxZoom: 18,
-        className: 'leaflet-tile'
-      })
-    };
-  };
 
   const basemaps = [
     { id: 'osm', name: 'OpenStreetMap (OSM)', icon: '🗺' },
@@ -62,13 +41,27 @@ const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
     { label: '🌊 Laut Selatan Jawa', id: 'java-south', center: [-8.5, 110.5] as [number, number], zoom: 9 },
   ];
 
-  // Initialize Leaflet map
+  // Initialize Leaflet map and basemap layers together
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current || !isLeafletAvailable || !L) return;
 
     try {
-      const basemapLayers = getBasemapLayers();
-      
+      // Create basemap layers first
+      basemapLayersRef.current = {
+        osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 20,
+        }),
+        satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri',
+          maxZoom: 18,
+        }),
+        terrain: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri',
+          maxZoom: 18,
+        })
+      };
+
       // Create map instance
       const map = L.map(mapContainerRef.current, {
         center: [-7.9, 110.37],
@@ -78,7 +71,7 @@ const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
       mapRef.current = map;
 
       // Add OSM basemap by default
-      basemapLayers.osm.addTo(map);
+      basemapLayersRef.current.osm.addTo(map);
 
       // Add custom zoom control at bottom-left
       L.control.zoom({ position: 'bottomleft' }).addTo(map);
@@ -104,8 +97,8 @@ const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
     if (!mapRef.current || !L || !isLeafletAvailable) return;
 
     try {
-      const basemapLayers = getBasemapLayers();
-      
+      const basemapLayers = basemapLayersRef.current;
+
       // Remove all basemaps from map
       Object.entries(basemapLayers).forEach(([id, layer]) => {
         if (mapRef.current?.hasLayer(layer)) {

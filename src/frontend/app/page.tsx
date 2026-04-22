@@ -1,16 +1,15 @@
 "use client";
 
-import React from 'react';
 import 'leaflet/dist/leaflet.css';
 
-import Header from '@/components/ui/Header';
-import Sidebar from '@/components/dashboard/Sidebar';
-import MapComponent from '@/components/map/Map';
 import BottomBar from '@/components/dashboard/BottomBar';
 import RightPanel from '@/components/dashboard/RightPanel';
+import Sidebar from '@/components/dashboard/Sidebar';
+import MapComponent from '@/components/map/Map';
+import Header from '@/components/ui/Header';
 
 import { useSimulation } from '@/hooks/useSimulation';
-import type { SimulationParams, RoutingParams, ABMParams } from '@/types';
+import type { ABMParams, RoutingParams, SimulationParams } from '@/types';
 
 export default function WebGISPage() {
   const sim = useSimulation();
