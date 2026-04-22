@@ -1,13 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import type { RoutingParams, ABMParams, RoutingResult, ABMResult, TESData } from '@/types';
 
 interface RightPanelProps {
-  onAnalyzeRoutes?: () => void;
-  onRunABM?: () => void;
+  onAnalyzeRoutes?: (params: RoutingParams) => Promise<void>;
+  onRunABM?: (params: ABMParams) => Promise<void>;
+  isLoading?: boolean;
+  routingResult?: RoutingResult | null;
+  abmResult?: ABMResult | null;
+  tesList?: TESData[];
+  hasSimulated?: boolean;
 }
 
-export default function RightPanel({ onAnalyzeRoutes, onRunABM }: RightPanelProps) {
+export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = false, routingResult, abmResult, tesList = [], hasSimulated = false }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'network' | 'abm'>('network');
   const [transportMode, setTransportMode] = useState<'foot' | 'motor' | 'car'>('foot');
   const [safetyWeight, setSafetyWeight] = useState(25);

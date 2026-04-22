@@ -1,12 +1,17 @@
 'use client';
 
 import React from 'react';
+import type { ImpactResult, SWEResult, RoutingResult } from '@/types';
 
 interface BottomBarProps {
   simulationActive?: boolean;
+  impactResult?: ImpactResult | null;
+  sweResult?: SWEResult | null;
+  routingResult?: RoutingResult | null;
+  isMockData?: boolean;
 }
 
-const BottomBar: React.FC<BottomBarProps> = ({ simulationActive = false }) => {
+const BottomBar: React.FC<BottomBarProps> = ({ simulationActive = false, impactResult, sweResult, routingResult, isMockData }) => {
   return (
     <div className="flex-shrink-0 flex border-t overflow-hidden h-56"
       style={{

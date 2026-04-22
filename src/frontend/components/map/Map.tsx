@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, ComponentType } from 'react';
 import dynamic from 'next/dynamic';
+import type { DesaData, TESData, SWEResult, RoutingResult, ABMResult } from '@/types';
 
 // Dynamically import Leaflet to prevent SSR issues
 let L: any;
@@ -18,9 +19,14 @@ try {
 
 interface MapProps {
   onBasemapChange?: (basemap: string) => void;
+  desaList?: DesaData[];
+  tesList?: TESData[];
+  sweResult?: SWEResult | null;
+  routingResult?: RoutingResult | null;
+  abmResult?: ABMResult | null;
 }
 
-const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
+const MapComponent: React.FC<MapProps> = ({ onBasemapChange, desaList, tesList, sweResult, routingResult, abmResult }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const basemapLayersRef = useRef<any>({});
@@ -101,8 +107,8 @@ const MapComponent: React.FC<MapProps> = ({ onBasemapChange }) => {
 
       // Remove all basemaps from map
       Object.entries(basemapLayers).forEach(([id, layer]) => {
-        if (mapRef.current?.hasLayer(layer)) {
-          mapRef.current.removeLayer(layer);
+        if (mapRef.current?.hasLayer(layer as L.Layer)) {
+          mapRef.current.removeLayer(layer as L.Layer);
         }
       });
 
