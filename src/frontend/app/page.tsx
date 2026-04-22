@@ -50,6 +50,8 @@ export default function WebGISPage() {
         </div>
       )}
 
+      {/* Sidebar */}
+
       {/* Error Toast */}
       {sim.error && (
         <div className="fixed top-14 right-4 z-50 px-4 py-3 rounded-lg border text-sm font-semibold"
