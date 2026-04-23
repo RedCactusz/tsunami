@@ -57,7 +57,7 @@ export interface SimulationState {
   startSimulation: (params: SimulationParams)  => Promise<void>;
   startRouting:    (params: RoutingParams)      => Promise<void>;
   startABM:        (params: ABMParams)          => Promise<void>;
-  refreshServer:   ()                           => Promise<void>;
+  refreshServer:   ()                           => Promise<ServerStatus>;
   resetResults:    ()                           => void;
 }
 

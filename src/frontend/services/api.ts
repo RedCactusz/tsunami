@@ -125,18 +125,37 @@ const MOCK_ABM_RESULT: ABMResult = {
 };
 
 const MOCK_DESA: DesaData[] = [
-  { name: 'Gadingsari',  lat: -7.998, lon: 110.267 },
-  { name: 'Srigading',   lat: -7.985, lon: 110.285 },
-  { name: 'Tirtosari',   lat: -7.975, lon: 110.255 },
-  { name: 'Poncosari',   lat: -7.963, lon: 110.298 },
-  { name: 'Trimurti',    lat: -7.952, lon: 110.244 },
+  { name: 'Parangtritis', lat: -8.025, lon: 110.332 },
+  { name: 'Donotirto',    lat: -8.003, lon: 110.263 },
+  { name: 'Tirtohargo',   lat: -8.032, lon: 110.281 },
+  { name: 'Tirtosari',    lat: -8.042, lon: 110.305 },
+  { name: 'Tirtomulyo',   lat: -8.037, lon: 110.276 },
+  { name: 'Poncosari',    lat: -8.049, lon: 110.220 },
+  { name: 'Trimurti',     lat: -8.029, lon: 110.238 },
+  { name: 'Gadingsari',   lat: -8.042, lon: 110.254 },
+  { name: 'Gadingharjo',  lat: -8.026, lon: 110.254 },
+  { name: 'Srigading',    lat: -8.039, lon: 110.281 },
+  { name: 'Murtigading',  lat: -8.021, lon: 110.271 },
+  { name: 'Bangunjiwo',   lat: -8.015, lon: 110.314 },
 ];
 
 const MOCK_TES: TESData[] = [
-  { id: 'tes-1', name: 'TES-01 — Masjid Al Huda',       lat: -7.983, lon: 110.275, kapasitas: 150 },
-  { id: 'tes-2', name: 'TES-02 — BPP Srandakan',        lat: -7.971, lon: 110.279, kapasitas: 200 },
-  { id: 'tes-3', name: 'TES-03 — SD Muh Gunturgeni',    lat: -7.963, lon: 110.265, kapasitas: 180 },
-  { id: 'tes-4', name: 'TES-04 — Balai Desa Poncosari', lat: -7.955, lon: 110.295, kapasitas: 250 },
+  { id: 'TES-01', name: 'TES Masjid Al Huda', lat: -7.96843133606, lon: 110.233926052, kapasitas: 500 },
+  { id: 'TES-02', name: 'TES BPP Srandakan', lat: -7.96095456288, lon: 110.241307048, kapasitas: 500 },
+  { id: 'TES-03', name: 'TES SD Muh Gunturgeni', lat: -7.96321767428, lon: 110.248343758, kapasitas: 500 },
+  { id: 'TES-04', name: 'TES Masjid Al FIrdaus', lat: -7.96933305549, lon: 110.243332044, kapasitas: 500 },
+  { id: 'TES-05', name: 'TES SD Koripan', lat: -7.97668879901, lon: 110.23588092, kapasitas: 500 },
+  { id: 'TES-06', name: 'TES Lapangan Sorobayan', lat: -7.96926275459, lon: 110.255317008, kapasitas: 500 },
+  { id: 'TES-07', name: 'TES SD Rejoniten', lat: -7.98496856992, lon: 110.250062291, kapasitas: 500 },
+  { id: 'TES-08', name: 'TES Kalurahan Gadingharjo', lat: -7.9794643436, lon: 110.263849605, kapasitas: 500 },
+  { id: 'TES-09', name: 'TES Lapangan Srigading', lat: -7.97581529443, lon: 110.280636194, kapasitas: 500 },
+  { id: 'TES-10', name: 'TES Pasar Sangkeh', lat: -7.98229057658, lon: 110.286228682, kapasitas: 500 },
+  { id: 'TES-11', name: 'TES Kalurahan Tirtosari', lat: -7.98367753249, lon: 110.297655356, kapasitas: 500 },
+  { id: 'TES-12', name: 'TES SD Kanisius Tirtosari', lat: -7.99042688197, lon: 110.294996955, kapasitas: 500 },
+  { id: 'TES-13', name: 'TES Pasar Kuliner Ngangkruk', lat: -7.97865334387, lon: 110.316386873, kapasitas: 500 },
+  { id: 'TES-14', name: 'TES Bukit TPR Parangtritis', lat: -7.99669480693, lon: 110.315214842, kapasitas: 500 },
+  { id: 'TES-15', name: 'TES Syekh Bela Belu', lat: -8.01635745673, lon: 110.323946287, kapasitas: 500 },
+  { id: 'TES-16', name: 'TES Syekh Maulana Maghribi', lat: -8.01995453799, lon: 110.328169259, kapasitas: 500 },
 ];
 
 // ════════════════════════════════════════════════

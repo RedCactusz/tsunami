@@ -20,6 +20,7 @@ src/frontend/.env*
 Thumbs.db
 *.pem
 
+# --- Proyek Lama & Data ---
 old_project/
 data/
-tmp/
+.tmp/

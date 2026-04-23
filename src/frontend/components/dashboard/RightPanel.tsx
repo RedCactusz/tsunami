@@ -1,16 +1,47 @@
 'use client';
 
 import React, { useState } from 'react';
+import type { RoutingParams, ABMParams, RoutingResult, ABMResult, TESData } from '@/types';
 
 interface RightPanelProps {
-  onAnalyzeRoutes?: () => void;
-  onRunABM?: () => void;
+  onAnalyzeRoutes?: (params: RoutingParams) => Promise<void>;
+  onRunABM?: (params: ABMParams) => Promise<void>;
+  isLoading?: boolean;
+  routingResult?: RoutingResult | null;
+  abmResult?: ABMResult | null;
+  tesList?: TESData[];
+  hasSimulated?: boolean;
 }
 
-export default function RightPanel({ onAnalyzeRoutes, onRunABM }: RightPanelProps) {
+export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = false, routingResult, abmResult, tesList = [], hasSimulated = false }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'network' | 'abm'>('network');
   const [transportMode, setTransportMode] = useState<'foot' | 'motor' | 'car'>('foot');
   const [safetyWeight, setSafetyWeight] = useState(25);
+
+  const handleAnalyzeRoutes = async () => {
+    if (!onAnalyzeRoutes) return;
+    
+    const params: RoutingParams = {
+      transport: transportMode,
+      speed_kmh: transportMode === 'foot' ? 4 : transportMode === 'motor' ? 30 : 40,
+      safety_weight: safetyWeight,
+    };
+    
+    await onAnalyzeRoutes(params);
+  };
+
+  const handleRunABM = async () => {
+    if (!onRunABM) return;
+    
+    const params: ABMParams = {
+      warning_time_min: 20,
+      sim_duration_min: 120,
+      flood_height_m: 5,
+      transport: transportMode,
+    };
+    
+    await onRunABM(params);
+  };
 
   const transportModes = [
     { id: 'foot', label: 'Jalan Kaki', speed: '~4 km/j', icon: '🚶' },
@@ -203,8 +234,9 @@ export default function RightPanel({ onAnalyzeRoutes, onRunABM }: RightPanelProp
 
               {/* Analyze Button */}
               <button
-                onClick={onAnalyzeRoutes}
-                className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all"
+                onClick={handleAnalyzeRoutes}
+                disabled={isLoading}
+                className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: 'linear-gradient(135deg, #064e3b, #059669)',
                   boxShadow: '0 4px 18px rgba(5, 150, 105, 0.3)',
@@ -282,8 +314,9 @@ export default function RightPanel({ onAnalyzeRoutes, onRunABM }: RightPanelProp
             </div>
 
             <button
-              onClick={onRunABM}
-              className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all"
+              onClick={handleRunABM}
+              disabled={isLoading}
+              className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'linear-gradient(135deg, #1a0050, #7c3aed)',
                 boxShadow: '0 4px 18px rgba(124, 58, 237, 0.3)',

@@ -27,6 +27,7 @@ export default function RootLayout({
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full w-full`}
       style={{ margin: 0, padding: 0 }}
+      suppressHydrationWarning
     >
       <body style={{ 
         margin: 0, 

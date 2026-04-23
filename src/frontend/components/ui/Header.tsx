@@ -1,12 +1,19 @@
 'use client';
 
 import React from 'react';
+import type { ServerStatus } from '@/types';
 
 interface StatusBadgeProps {
   icon: React.ReactNode;
   label: string;
   status: 'online' | 'offline' | 'loading';
   title?: string;
+}
+
+interface HeaderProps {
+  serverStatus?: ServerStatus;
+  isMockData?: boolean;
+  onRefreshServer?: () => Promise<ServerStatus>;
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ icon, label, status, title }) => {
@@ -27,7 +34,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ icon, label, status, title })
   );
 };
 
-export default function Header() {
+export default function Header({ serverStatus = 'offline', isMockData = false, onRefreshServer }: HeaderProps) {
   return (
     <header className="flex-shrink-0 bg-gradient-to-r from-slate-900 from-90% to-slate-800 border-b border-cyan-600 border-opacity-14 px-6 py-3 flex items-center gap-4 z-50 shadow-sm"
       style={{

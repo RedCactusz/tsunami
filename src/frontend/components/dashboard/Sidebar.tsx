@@ -1,12 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
+import type { SimulationParams, SWEResult, TESData } from '@/types';
 
 interface SidebarProps {
-  onSimulationRun?: () => void;
+  onSimulationRun?: (params: SimulationParams) => Promise<void>;
+  isLoading?: boolean;
+  sweResult?: SWEResult | null;
+  tesList?: TESData[];
 }
 
-export default function Sidebar({ onSimulationRun }: SidebarProps) {
+export default function Sidebar({ onSimulationRun, isLoading = false, sweResult, tesList = [] }: SidebarProps) {
   const [magnitude, setMagnitude] = useState(7.5);
   const [faultType, setFaultType] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectedFault, setSelectedFault] = useState<string | null>(null);
@@ -25,6 +29,19 @@ export default function Sidebar({ onSimulationRun }: SidebarProps) {
   ];
 
   const magnitudePresets = [6, 6.5, 7, 7.5, 8, 8.5, 9];
+
+  const handleRunSimulation = async () => {
+    if (!onSimulationRun) return;
+    
+    const params: SimulationParams = {
+      magnitude,
+      fault_type: faultType,
+      fault_id: selectedFault,
+      source_mode: sourceMode,
+    };
+    
+    await onSimulationRun(params);
+  };
 
   return (
     <aside className="w-80 flex-shrink-0 flex flex-col border-r overflow-y-auto"
@@ -244,15 +261,16 @@ export default function Sidebar({ onSimulationRun }: SidebarProps) {
 
           {/* Run Button */}
           <button
-            onClick={onSimulationRun}
-            className="w-full py-3 rounded-lg font-bold uppercase text-sm text-white transition-all transform hover:scale-105 active:scale-95"
+            onClick={handleRunSimulation}
+            disabled={isLoading}
+            className="w-full py-3 rounded-lg font-bold uppercase text-sm text-white transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(135deg, #005c99, #0088cc)',
               boxShadow: '0 4px 20px rgba(14, 165, 233, 0.3)',
               letterSpacing: '1px'
             }}
           >
-            ▶ JALANKAN SIMULASI (SWE NUMERIK)
+            {isLoading ? '⏳ SIMULASI BERJALAN...' : '▶ JALANKAN SIMULASI (SWE NUMERIK)'}
           </button>
         </div>
 
