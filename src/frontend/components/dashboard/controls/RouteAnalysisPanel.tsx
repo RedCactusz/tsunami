@@ -1,6 +1,9 @@
 'use client';
 
+import React, { useState } from 'react';
 import type { RoutingParams, TESData } from '@/types';
+import TransportModeSelector from './TransportModeSelector';
+import SafetyWeightSlider from './SafetyWeightSlider';
 
 interface RouteAnalysisPanelProps {
   transportMode: 'foot' | 'motor' | 'car';
@@ -10,6 +13,10 @@ interface RouteAnalysisPanelProps {
   onAnalyzeRoutes?: (params: RoutingParams) => Promise<void>;
   isLoading?: boolean;
   tesList?: TESData[];
+  customOrigin?: { lat: number; lon: number } | null;
+  isPickingOrigin?: boolean;
+  onPickOriginToggle?: () => void;
+  onResetOrigin?: () => void;
 }
 
 const transportModes = [
@@ -26,13 +33,25 @@ export default function RouteAnalysisPanel({
   onAnalyzeRoutes,
   isLoading = false,
   tesList = [],
+  customOrigin,
+  isPickingOrigin = false,
+  onPickOriginToggle,
+  onResetOrigin,
 }: RouteAnalysisPanelProps) {
+  const [selectedTesId, setSelectedTesId] = useState<string | null>(null);
+
   const handleAnalyzeRoutes = async () => {
     if (!onAnalyzeRoutes) return;
 
+    const speedMap = {
+      foot: 4,
+      motor: 30,
+      car: 40
+    };
+
     const params: RoutingParams = {
       transport: transportMode,
-      speed_kmh: transportMode === 'foot' ? 4 : transportMode === 'motor' ? 30 : 40,
+      speed_kmh: speedMap[transportMode],
       safety_weight: safetyWeight,
     };
 
@@ -70,19 +89,42 @@ export default function RouteAnalysisPanel({
 
         <div className="mb-2">
           <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>📍 Titik Asal (Zona Bahaya)</div>
-          <button className="w-full flex items-center gap-2 px-2 py-2 rounded-md border-2 border-dashed font-semibold text-xs" style={{
-            borderColor: 'var(--accent)',
-            background: 'rgba(56, 189, 248, 0.12)',
-            color: 'var(--accent)',
-          }}>
-            🖱️ Klik peta untuk tentukan titik asal
+          <button
+            onClick={onPickOriginToggle}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-md border-2 font-semibold text-xs"
+            style={{
+              borderColor: customOrigin ? 'var(--accent)' : 'var(--accent)',
+              borderStyle: customOrigin ? 'solid' : 'dashed',
+              background: isPickingOrigin ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.12)',
+              color: 'var(--accent)',
+            }}
+          >
+            {isPickingOrigin ? '🖱️ Klik peta — pilih titik asal...' : customOrigin ? '✅ ' + customOrigin.lat.toFixed(5) + '°, ' + customOrigin.lon.toFixed(5) + '°' : '🖱️ Klik peta untuk tentukan titik asal'}
           </button>
+          {customOrigin && (
+            <button
+              onClick={onResetOrigin}
+              className="w-full mt-1 py-1 px-2 rounded text-xs"
+              style={{
+                background: 'rgba(246, 95, 95, 0.08)',
+                border: '1px solid rgba(248, 113, 113, 0.18)',
+                color: '#f87171',
+              }}
+            >
+              Reset titik asal
+            </button>
+          )}
         </div>
 
         <div>
           <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>🏁 Titik Tujuan (TES)</div>
-          <select className="w-full text-xs" style={{ background: 'rgba(0, 15, 40, 0.55)', color: 'var(--text)', borderColor: 'var(--border)' }}>
-            <option>— Pilih TES —</option>
+          <select
+            value={selectedTesId || ''}
+            onChange={(e) => setSelectedTesId(e.target.value || null)}
+            className="w-full text-xs"
+            style={{ background: 'rgba(0, 15, 40, 0.55)', color: 'var(--text)', borderColor: 'var(--border)' }}
+          >
+            <option value="">— Pilih TES —</option>
             {tesList.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
@@ -91,77 +133,20 @@ export default function RouteAnalysisPanel({
       </div>
 
       <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
-        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-          Moda Transportasi
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {transportModes.map((mode) => (
-            <button
-              key={mode.id}
-              type="button"
-              onClick={() => onTransportModeChange(mode.id as any)}
-              className="p-2 rounded-md border text-xs font-bold text-center transition-all"
-              style={{
-                background: transportMode === mode.id ? 'rgba(56, 189, 248, 0.14)' : 'rgba(0, 15, 40, 0.5)',
-                borderColor: transportMode === mode.id ? 'var(--accent)' : 'var(--border)',
-                color: transportMode === mode.id ? 'var(--accent)' : 'var(--muted)',
-              }}
-            >
-              <div className="text-lg mb-1">{mode.icon}</div>
-              {mode.label}
-            </button>
-          ))}
-        </div>
+        <TransportModeSelector
+          selectedMode={transportMode}
+          onModeChange={onTransportModeChange}
+        />
+      </div>
 
-        <div className="mt-2 text-xs p-2 rounded-md" style={{
-          background: 'rgba(0, 18, 45, 0.5)',
-          color: 'var(--muted)',
-          lineHeight: '1.7',
-        }}>
-          🚶 <b style={{ color: 'var(--accent)' }}>Jalan Kaki</b> — Kecepatan ~4 km/j. Jalur kaki lebih fleksibel.
-        </div>
+      <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
+        <SafetyWeightSlider
+          value={safetyWeight}
+          onChange={onSafetyWeightChange}
+        />
       </div>
 
       <div className="mb-4 pb-4">
-        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-          Metode Analisis
-        </div>
-
-        <div className="p-2 rounded-md mb-2" style={{
-          background: 'rgba(56, 189, 248, 0.07)',
-          border: '1px solid rgba(56, 189, 248, 0.2)',
-        }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm">🛣</span>
-            <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>Jalur Terpendek + DEM</span>
-            <span className="ml-auto text-xs px-2 py-1 rounded" style={{
-              background: 'rgba(74, 222, 128, 0.15)',
-              color: '#4ade80',
-            }}>
-              ✓ Aktif
-            </span>
-          </div>
-          <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-            Network analysis dengan <b style={{ color: 'var(--text)' }}>composite cost</b>: bobot jarak, waktu tempuh, <b style={{ color: '#34d399' }}>elevasi DEM</b>, dan <b style={{ color: '#a78bfa' }}>kemiringan lereng</b>.
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <div className="flex justify-between items-center text-xs mb-1">
-            <span>⛰ Prioritas Elevasi & Slope</span>
-            <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{safetyWeight}%</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="60"
-            value={safetyWeight}
-            onChange={(event) => onSafetyWeightChange(parseInt(event.target.value, 10))}
-            className="w-full"
-            style={{ accentColor: '#4ade80' }}
-          />
-        </div>
-
         <button
           type="button"
           onClick={handleAnalyzeRoutes}

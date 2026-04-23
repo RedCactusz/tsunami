@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import type { RoutingParams, ABMParams, RoutingResult, ABMResult, TESData } from '@/types';
 import RouteAnalysisPanel from '@/components/dashboard/controls/RouteAnalysisPanel';
 import ABMPanel from '@/components/dashboard/controls/ABMPanel';
+import TransportModeSelector from '@/components/dashboard/controls/TransportModeSelector';
+import SafetyWeightSlider from '@/components/dashboard/controls/SafetyWeightSlider';
 
 interface RightPanelProps {
   onAnalyzeRoutes?: (params: RoutingParams) => Promise<void>;
@@ -13,9 +15,13 @@ interface RightPanelProps {
   abmResult?: ABMResult | null;
   tesList?: TESData[];
   hasSimulated?: boolean;
+  customOrigin?: { lat: number; lon: number } | null;
+  isPickingOrigin?: boolean;
+  onPickOriginToggle?: () => void;
+  onResetOrigin?: () => void;
 }
 
-export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = false, routingResult, abmResult, tesList = [], hasSimulated = false }: RightPanelProps) {
+export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = false, routingResult, abmResult, tesList = [], hasSimulated = false, customOrigin, isPickingOrigin = false, onPickOriginToggle, onResetOrigin }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'network' | 'abm'>('network');
   const [transportMode, setTransportMode] = useState<'foot' | 'motor' | 'car'>('foot');
   const [safetyWeight, setSafetyWeight] = useState(25);
@@ -78,6 +84,10 @@ export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = fals
             onAnalyzeRoutes={onAnalyzeRoutes}
             isLoading={isLoading}
             tesList={tesList}
+            customOrigin={customOrigin}
+            isPickingOrigin={isPickingOrigin}
+            onPickOriginToggle={onPickOriginToggle}
+            onResetOrigin={onResetOrigin}
           />
         ) : (
           <ABMPanel

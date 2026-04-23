@@ -16,6 +16,8 @@ export default function WebGISPage() {
   const sim = useSimulation();
   const [customEpicenter, setCustomEpicenter] = useState<{ lat: number; lon: number } | null>(null);
   const [isPickingEpicenter, setIsPickingEpicenter] = useState(false);
+  const [customOrigin, setCustomOrigin] = useState<{ lat: number; lon: number } | null>(null);
+  const [isPickingOrigin, setIsPickingOrigin] = useState(false);
 
   const handleSimulationRun = async (params: SimulationParams) => {
     await sim.startSimulation(params);
@@ -76,6 +78,9 @@ export default function WebGISPage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <MapComponent
             onBasemapChange={(basemap) => console.log('Basemap:', basemap)}
+            onLayerToggle={(layerId, isVisible) => console.log('Layer:', layerId, isVisible)}
+            onZoomPreset={(preset) => console.log('Zoom preset:', preset)}
+            onExport={(type, format) => console.log('Export:', type, format)}
             desaList={sim.desaList}
             tesList={sim.tesList}
             sweResult={sim.sweResult}
@@ -86,6 +91,12 @@ export default function WebGISPage() {
             onEpicenterSelect={(coords) => {
               setCustomEpicenter(coords);
               setIsPickingEpicenter(false);
+            }}
+            customOrigin={customOrigin}
+            isPickingOrigin={isPickingOrigin}
+            onOriginSelect={(coords) => {
+              setCustomOrigin(coords);
+              setIsPickingOrigin(false);
             }}
           />
           <BottomBar
@@ -104,6 +115,10 @@ export default function WebGISPage() {
           abmResult={sim.abmResult}
           tesList={sim.tesList}
           hasSimulated={sim.hasSimulated}
+          customOrigin={customOrigin}
+          isPickingOrigin={isPickingOrigin}
+          onPickOriginToggle={() => setIsPickingOrigin((prev) => !prev)}
+          onResetOrigin={() => setCustomOrigin(null)}
         />
       </div>
     </div>
