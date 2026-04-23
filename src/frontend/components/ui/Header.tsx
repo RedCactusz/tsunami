@@ -13,7 +13,7 @@ interface StatusBadgeProps {
 interface HeaderProps {
   serverStatus?: ServerStatus;
   isMockData?: boolean;
-  onRefreshServer?: () => Promise<void>;
+  onRefreshServer?: () => Promise<ServerStatus>;
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ icon, label, status, title }) => {

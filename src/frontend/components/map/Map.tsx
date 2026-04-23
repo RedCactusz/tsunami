@@ -93,6 +93,258 @@ const MapComponent: React.FC<MapProps> = ({ onBasemapChange, desaList, tesList, 
     }
   }, []);
 
+  // Display TES markers when tesList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !tesList?.length) return;
+
+    try {
+      // Create TES layer group if it doesn't exist
+      let tesLayerGroup = (mapRef.current as any)._tesLayerGroup;
+      if (!tesLayerGroup) {
+        tesLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._tesLayerGroup = tesLayerGroup;
+      }
+
+      // Clear existing markers
+      tesLayerGroup.clearLayers();
+
+      // Add TES markers
+      tesList.forEach((tes) => {
+        const marker = L.marker([tes.lat, tes.lon], {
+          icon: L.icon({
+            iconUrl: '/Icon_Titik_Kumpul.png', // Icon path relative to public folder
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -24],
+          })
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${tes.name}</b><br>
+            Kapasitas: ${tes.kapasitas || '—'} orang<br>
+            ID: ${tes.id}
+          </div>
+        `);
+
+        tesLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ TES markers displayed: ${tesList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying TES markers:', error);
+    }
+  }, [tesList, isLeafletAvailable]);
+
+  // Display desa boundaries when desaList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !desaList?.length) return;
+
+    try {
+      // Create desa layer group if it doesn't exist
+      let desaLayerGroup = (mapRef.current as any)._desaLayerGroup;
+      if (!desaLayerGroup) {
+        desaLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._desaLayerGroup = desaLayerGroup;
+      }
+
+      // Clear existing boundaries
+      desaLayerGroup.clearLayers();
+
+      // Add desa boundaries (simplified for now - just markers)
+      desaList.forEach((desa) => {
+        const marker = L.circleMarker([desa.lat, desa.lon], {
+          color: '#38bdf8',
+          fillColor: '#38bdf8',
+          fillOpacity: 0.3,
+          radius: 6,
+          weight: 2,
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${desa.name}</b><br>
+            Desa/Kelurahan
+          </div>
+        `);
+
+        desaLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ Desa markers displayed: ${desaList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying desa markers:', error);
+    }
+  }, [desaList, isLeafletAvailable]);
+
+  // Display TES markers when tesList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !tesList?.length) return;
+
+    try {
+      // Create TES layer group if it doesn't exist
+      let tesLayerGroup = (mapRef.current as any)._tesLayerGroup;
+      if (!tesLayerGroup) {
+        tesLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._tesLayerGroup = tesLayerGroup;
+      }
+
+      // Clear existing markers
+      tesLayerGroup.clearLayers();
+
+      // Add TES markers
+      tesList.forEach((tes) => {
+        const marker = L.marker([tes.lat, tes.lon], {
+          icon: L.icon({
+            iconUrl: '/Icon_Titik_Kumpul.png', // Icon path relative to public folder
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -24],
+          })
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${tes.name}</b><br>
+            Kapasitas: ${tes.kapasitas || '—'} orang<br>
+            ID: ${tes.id}
+          </div>
+        `);
+
+        tesLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ TES markers displayed: ${tesList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying TES markers:', error);
+    }
+  }, [tesList, isLeafletAvailable]);
+
+  // Display desa boundaries when desaList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !desaList?.length) return;
+
+    try {
+      // Create desa layer group if it doesn't exist
+      let desaLayerGroup = (mapRef.current as any)._desaLayerGroup;
+      if (!desaLayerGroup) {
+        desaLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._desaLayerGroup = desaLayerGroup;
+      }
+
+      // Clear existing boundaries
+      desaLayerGroup.clearLayers();
+
+      // Add desa boundaries (simplified for now - just markers)
+      desaList.forEach((desa) => {
+        const marker = L.circleMarker([desa.lat, desa.lon], {
+          color: '#38bdf8',
+          fillColor: '#38bdf8',
+          fillOpacity: 0.3,
+          radius: 6,
+          weight: 2,
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${desa.name}</b><br>
+            Desa/Kelurahan
+          </div>
+        `);
+
+        desaLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ Desa markers displayed: ${desaList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying desa markers:', error);
+    }
+  }, [desaList, isLeafletAvailable]);
+
+  // Display TES markers when tesList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !tesList?.length) return;
+
+    try {
+      // Create TES layer group if it doesn't exist
+      let tesLayerGroup = (mapRef.current as any)._tesLayerGroup;
+      if (!tesLayerGroup) {
+        tesLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._tesLayerGroup = tesLayerGroup;
+      }
+
+      // Clear existing markers
+      tesLayerGroup.clearLayers();
+
+      // Add TES markers
+      tesList.forEach((tes) => {
+        const marker = L.marker([tes.lat, tes.lon], {
+          icon: L.icon({
+            iconUrl: '/Icon_Titik_Kumpul.png', // Icon path relative to public folder
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -24],
+          })
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${tes.name}</b><br>
+            Kapasitas: ${tes.kapasitas || '—'} orang<br>
+            ID: ${tes.id}
+          </div>
+        `);
+
+        tesLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ TES markers displayed: ${tesList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying TES markers:', error);
+    }
+  }, [tesList, isLeafletAvailable]);
+
+  // Display desa boundaries when desaList changes
+  useEffect(() => {
+    if (!mapRef.current || !isLeafletAvailable || !L || !desaList?.length) return;
+
+    try {
+      // Create desa layer group if it doesn't exist
+      let desaLayerGroup = (mapRef.current as any)._desaLayerGroup;
+      if (!desaLayerGroup) {
+        desaLayerGroup = L.layerGroup().addTo(mapRef.current);
+        (mapRef.current as any)._desaLayerGroup = desaLayerGroup;
+      }
+
+      // Clear existing boundaries
+      desaLayerGroup.clearLayers();
+
+      // Add desa boundaries (simplified for now - just markers)
+      desaList.forEach((desa) => {
+        const marker = L.circleMarker([desa.lat, desa.lon], {
+          color: '#38bdf8',
+          fillColor: '#38bdf8',
+          fillOpacity: 0.3,
+          radius: 6,
+          weight: 2,
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: #38bdf8;">${desa.name}</b><br>
+            Desa/Kelurahan
+          </div>
+        `);
+
+        desaLayerGroup.addLayer(marker);
+      });
+
+      console.log(`✅ Desa markers displayed: ${desaList.length} locations`);
+    } catch (error) {
+      console.error('Error displaying desa markers:', error);
+    }
+  }, [desaList, isLeafletAvailable]);
+
   const handleZoomPreset = (preset: typeof zoomPresets[0]) => {
     if (mapRef.current) {
       mapRef.current.setView(preset.center, preset.zoom, { animate: true, duration: 1 });
