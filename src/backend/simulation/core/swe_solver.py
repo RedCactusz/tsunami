@@ -59,7 +59,7 @@ except ImportError:
         return range(*args)
 
 # ── Import tools spasial dari modul terpisah ─────────────────
-from spatial_utils import (
+from .spatial_utils import (
     DEG2RAD, RAD2DEG, EARTH_R,
     N_OCEAN, N_SHORE,
     BANTUL_ROUGHNESS_LULC,

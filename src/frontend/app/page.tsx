@@ -2,6 +2,7 @@
 
 import 'leaflet/dist/leaflet.css';
 
+import React, { useState } from 'react';
 import BottomBar from '@/components/dashboard/BottomBar';
 import RightPanel from '@/components/dashboard/RightPanel';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -13,6 +14,8 @@ import type { ABMParams, RoutingParams, SimulationParams } from '@/types';
 
 export default function WebGISPage() {
   const sim = useSimulation();
+  const [customEpicenter, setCustomEpicenter] = useState<{ lat: number; lon: number } | null>(null);
+  const [isPickingEpicenter, setIsPickingEpicenter] = useState(false);
 
   const handleSimulationRun = async (params: SimulationParams) => {
     await sim.startSimulation(params);
@@ -65,6 +68,10 @@ export default function WebGISPage() {
           isLoading={sim.isLoading}
           sweResult={sim.sweResult}
           tesList={sim.tesList}
+          customEpicenter={customEpicenter}
+          isPickingEpicenter={isPickingEpicenter}
+          onPickEpicenterToggle={() => setIsPickingEpicenter((prev) => !prev)}
+          onResetEpicenter={() => setCustomEpicenter(null)}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           <MapComponent
@@ -74,6 +81,12 @@ export default function WebGISPage() {
             sweResult={sim.sweResult}
             routingResult={sim.routingResult}
             abmResult={sim.abmResult}
+            customEpicenter={customEpicenter}
+            isPickingEpicenter={isPickingEpicenter}
+            onEpicenterSelect={(coords) => {
+              setCustomEpicenter(coords);
+              setIsPickingEpicenter(false);
+            }}
           />
           <BottomBar
             simulationActive={sim.hasSimulated}
