@@ -22,8 +22,9 @@ from simulation.core.swe_solver import TsunamiSimulator
 from simulation.core.spatial_utils import MasterBathymetry, DEMManager
 
 # ── Global state ──────────────────────────────────────────────
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+# PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 RASTER_DIR = os.path.join(DATA_DIR, "Raster")
 VEKTOR_DIR = os.path.join(DATA_DIR, "Vektor")
 BATNAS_DIR = os.path.join(RASTER_DIR, "BATNAS")

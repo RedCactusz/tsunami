@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import type { SimulationParams, SWEResult, TESData } from '@/types';
 import SourceSelector from '@/components/dashboard/controls/SourceSelector';
 import SimulationParameters from '@/components/dashboard/controls/SimulationParameters';
+import FaultSelector from '@/components/dashboard/controls/FaultSelector';
+import DetailedParameterControls from '@/components/dashboard/controls/DetailedParameterControls';
+import { SimulationProgress } from '@/components/ui/ProgressBar';
 
 interface SidebarProps {
   onSimulationRun?: (params: SimulationParams) => Promise<void>;
@@ -27,19 +30,41 @@ export default function Sidebar({
   onResetEpicenter,
 }: SidebarProps) {
   const [magnitude, setMagnitude] = useState(7.5);
-  const [faultType, setFaultType] = useState<'vertical' | 'horizontal'>('vertical');
+  const [faultType, setFaultType] = useState<'vertical' | 'horizontal' | 'thrust'>('vertical');
   const [selectedFault, setSelectedFault] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<'fault' | 'mega' | 'custom'>('fault');
   const magnitudePresets = [6, 6.5, 7, 7.5, 8, 8.5, 9];
 
+  // Detailed parameters
+  const [depth, setDepth] = useState(15);
+  const [length, setLength] = useState(100);
+  const [rake, setRake] = useState(0);
+
+  // Simulation progress
+  const [simulationStep, setSimulationStep] = useState(0);
+  const simulationSteps = [
+    'Initializing simulation parameters',
+    'Loading fault geometry',
+    'Calculating seismic source',
+    'Running tsunami propagation',
+    'Computing inundation areas',
+    'Generating impact assessment',
+    'Finalizing results'
+  ];
+
   const handleRunSimulation = async () => {
     if (!onSimulationRun) return;
+
+    setSimulationStep(0);
 
     const params: SimulationParams = {
       magnitude,
       fault_type: faultType,
       fault_id: sourceMode === 'custom' ? null : selectedFault,
       source_mode: sourceMode,
+      depth,
+      length,
+      rake,
       ...(sourceMode === 'custom' && customEpicenter
         ? {
             lat: customEpicenter.lat,
@@ -48,7 +73,14 @@ export default function Sidebar({
         : {}),
     };
 
+    // Simulate progress steps
+    for (let i = 0; i < simulationSteps.length; i++) {
+      setSimulationStep(i + 1);
+      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate step duration
+    }
+
     await onSimulationRun(params);
+    setSimulationStep(simulationSteps.length);
   };
 
   return (
@@ -82,7 +114,12 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+        <FaultSelector
+          selectedFault={selectedFault}
+          onSelectFault={setSelectedFault}
+        />
+
         <SourceSelector
           sourceMode={sourceMode}
           onSourceModeChange={setSourceMode}
@@ -92,6 +129,19 @@ export default function Sidebar({
           isPickingEpicenter={isPickingEpicenter}
           onPickEpicenterToggle={onPickEpicenterToggle ?? (() => undefined)}
           onResetEpicenter={onResetEpicenter ?? (() => undefined)}
+        />
+
+        <DetailedParameterControls
+          magnitude={magnitude}
+          onMagnitudeChange={setMagnitude}
+          faultType={faultType}
+          onFaultTypeChange={setFaultType}
+          depth={depth}
+          onDepthChange={setDepth}
+          length={length}
+          onLengthChange={setLength}
+          rake={rake}
+          onRakeChange={setRake}
         />
 
         <div className="mb-4">
@@ -116,6 +166,15 @@ export default function Sidebar({
             </div>
           </div>
         </div>
+
+        {isLoading && (
+          <SimulationProgress
+            currentStep={simulationStep}
+            totalSteps={simulationSteps.length}
+            stepLabels={simulationSteps}
+            isRunning={isLoading}
+          />
+        )}
 
         <SimulationParameters
           magnitude={magnitude}

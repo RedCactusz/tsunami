@@ -2,6 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { DesaData, TESData, SWEResult, RoutingResult, ABMResult } from '@/types';
+import LayerControl from './LayerControl';
+import ServerStatus from './ServerStatus';
+import ExportPanel from './ExportPanel';
 
 let L: any;
 const isBrowser = typeof window !== 'undefined';
@@ -15,6 +18,9 @@ if (isBrowser) {
 
 interface MapProps {
   onBasemapChange?: (basemap: string) => void;
+  onLayerToggle?: (layerId: string, isVisible: boolean) => void;
+  onZoomPreset?: (preset: string) => void;
+  onExport?: (type: string, format: string) => void;
   desaList?: DesaData[];
   tesList?: TESData[];
   sweResult?: SWEResult | null;
@@ -23,12 +29,18 @@ interface MapProps {
   customEpicenter?: { lat: number; lon: number } | null;
   isPickingEpicenter?: boolean;
   onEpicenterSelect?: (coords: { lat: number; lon: number }) => void;
+  customOrigin?: { lat: number; lon: number } | null;
+  isPickingOrigin?: boolean;
+  onOriginSelect?: (coords: { lat: number; lon: number }) => void;
 }
 
 const defaultCenter: [number, number] = [-7.9, 110.37];
 
 export default function MapComponent({
   onBasemapChange,
+  onLayerToggle,
+  onZoomPreset,
+  onExport,
   desaList = [],
   tesList = [],
   sweResult,
@@ -37,18 +49,67 @@ export default function MapComponent({
   customEpicenter,
   isPickingEpicenter = false,
   onEpicenterSelect,
+  customOrigin,
+  isPickingOrigin = false,
+  onOriginSelect,
 }: MapProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeBasemap, setActiveBasemap] = useState<'osm' | 'satellite' | 'terrain'>('osm');
-  const [showTES, setShowTES] = useState(true);
-  const [showDesa, setShowDesa] = useState(true);
-  const [showEpicenter, setShowEpicenter] = useState(true);
+  const [layerVisibility, setLayerVisibility] = useState({
+    desa: true,
+    tes: true,
+    roads: true,
+    coastline: true,
+    inundation: true,
+    wave_path: true,
+    impact_zones: true,
+    routes: true,
+    abm_agents: true,
+    network_roads: false,
+  });
+
+  const handleLayerToggle = (layerId: string, isVisible: boolean) => {
+    setLayerVisibility(prev => ({
+      ...prev,
+      [layerId]: isVisible
+    }));
+    onLayerToggle?.(layerId, isVisible);
+  };
+
+  const handleBasemapChange = (basemap: string) => {
+    setActiveBasemap(basemap as 'osm' | 'satellite' | 'terrain');
+    onBasemapChange?.(basemap);
+  };
+
+  type ZoomPresetKey = 'bantul' | 'parangtritis' | 'full';
+
+  const handleZoomPreset = (preset: string) => {
+    if (!mapRef.current) return;
+
+    const zoomBounds: Record<ZoomPresetKey, [number, number][]> = {
+      bantul: [[-8.05, 110.15], [-7.85, 110.45]],
+      parangtritis: [[-8.05, 110.25], [-7.95, 110.35]],
+      full: [[-8.2, 110.0], [-7.7, 110.6]],
+    };
+
+    if (preset in zoomBounds) {
+      const key = preset as ZoomPresetKey;
+      mapRef.current.fitBounds(zoomBounds[key]);
+    }
+
+    onZoomPreset?.(preset);
+  };
+
+  const handleExport = (type: string, format: string) => {
+    onExport?.(type, format);
+  };
 
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const basemapLayersRef = useRef<Record<string, any>>({});
   const currentBasemapRef = useRef<any>(null);
   const epicenterMarkerRef = useRef<any>(null);
+  const originMarkerRef = useRef<any>(null);
   const tesGroupRef = useRef<any>(null);
   const desaGroupRef = useRef<any>(null);
 
@@ -89,6 +150,7 @@ export default function MapComponent({
       mapRef.current = null;
       currentBasemapRef.current = null;
       epicenterMarkerRef.current = null;
+      originMarkerRef.current = null;
       tesGroupRef.current = null;
       desaGroupRef.current = null;
     };
@@ -117,7 +179,14 @@ export default function MapComponent({
       iconAnchor: [14, 28],
     });
 
-    if (customEpicenter && showEpicenter) {
+    const originIcon = L.divIcon({
+      className: '',
+      html: `<div style="width:28px;height:28px;background:radial-gradient(circle,#34d399,#10b981);border:2.5px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    });
+
+    if (customEpicenter) {
       const latlng = [customEpicenter.lat, customEpicenter.lon];
 
       if (!epicenterMarkerRef.current) {
@@ -141,30 +210,59 @@ export default function MapComponent({
       map.removeLayer(epicenterMarkerRef.current);
       epicenterMarkerRef.current = null;
     }
-  }, [customEpicenter, showEpicenter, onEpicenterSelect]);
+
+    if (customOrigin) {
+      const originLatLng = [customOrigin.lat, customOrigin.lon];
+
+      if (!originMarkerRef.current) {
+        const marker = L.marker(originLatLng, {
+          icon: originIcon,
+          draggable: true,
+          zIndexOffset: 500,
+        }).addTo(map);
+
+        marker.bindTooltip('📍 Titik Asal Evakuasi (drag untuk ubah)', { permanent: false });
+        marker.on('dragend', (event: any) => {
+          const position = event.target.getLatLng();
+          onOriginSelect?.({ lat: position.lat, lon: position.lng });
+        });
+
+        originMarkerRef.current = marker;
+      } else {
+        originMarkerRef.current.setLatLng(originLatLng);
+      }
+    } else if (originMarkerRef.current) {
+      map.removeLayer(originMarkerRef.current);
+      originMarkerRef.current = null;
+    }
+  }, [customEpicenter, customOrigin, onEpicenterSelect, onOriginSelect]);
 
   useEffect(() => {
     if (!mapRef.current) return;
     const container = mapRef.current.getContainer();
-    container.style.cursor = isPickingEpicenter ? 'crosshair' : '';
-  }, [isPickingEpicenter]);
+    container.style.cursor = isPickingEpicenter || isPickingOrigin ? 'crosshair' : '';
+  }, [isPickingEpicenter, isPickingOrigin]);
 
   useEffect(() => {
-    if (!mapRef.current || !L || !onEpicenterSelect) return;
+    if (!mapRef.current || !L) return;
     const map = mapRef.current;
 
     const handleClick = (event: any) => {
-      if (!isPickingEpicenter) return;
       const latlng = event.latlng;
       if (!latlng) return;
-      onEpicenterSelect({ lat: latlng.lat, lon: latlng.lng });
+      if (isPickingOrigin) {
+        onOriginSelect?.({ lat: latlng.lat, lon: latlng.lng });
+        return;
+      }
+      if (!isPickingEpicenter) return;
+      onEpicenterSelect?.({ lat: latlng.lat, lon: latlng.lng });
     };
 
     map.on('click', handleClick);
     return () => {
       map.off('click', handleClick);
     };
-  }, [isPickingEpicenter, onEpicenterSelect]);
+  }, [isPickingEpicenter, isPickingOrigin, onEpicenterSelect, onOriginSelect]);
 
   useEffect(() => {
     if (!mapRef.current || !L) return;
@@ -175,11 +273,11 @@ export default function MapComponent({
     }
 
     tesGroupRef.current.clearLayers();
-    if (showTES) {
+    if (layerVisibility.tes) {
       tesList.forEach((tes) => {
         const marker = L.marker([tes.lat, tes.lon], {
           icon: L.icon({
-            iconUrl: '/Icon_Titik_Kumpul.png',
+            iconUrl: '/Icon Titik Kumpul.png',
             iconSize: [24, 24],
             iconAnchor: [12, 24],
             popupAnchor: [0, -24],
@@ -195,7 +293,7 @@ export default function MapComponent({
         tesGroupRef.current.addLayer(marker);
       });
     }
-  }, [tesList, showTES]);
+  }, [tesList, layerVisibility.tes]);
 
   useEffect(() => {
     if (!mapRef.current || !L) return;
@@ -206,7 +304,7 @@ export default function MapComponent({
     }
 
     desaGroupRef.current.clearLayers();
-    if (showDesa) {
+    if (layerVisibility.desa) {
       desaList.forEach((desa) => {
         const marker = L.circleMarker([desa.lat, desa.lon], {
           color: '#38bdf8',
@@ -224,111 +322,24 @@ export default function MapComponent({
         desaGroupRef.current.addLayer(marker);
       });
     }
-  }, [desaList, showDesa]);
+  }, [desaList, layerVisibility.desa]);
 
   return (
     <div className="flex-1 relative overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0" />
-      <div className="absolute top-4 left-4" style={{ zIndex: 1000 }}>
-        {panelOpen ? (
-          <div className="rounded-3xl border border-white/15 bg-slate-950/90 shadow-2xl backdrop-blur-lg text-sm text-slate-100" style={{ width: 292 }}>
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-cyan-300">Kontrol Peta</div>
-                <div className="text-[13px] text-slate-300">Basemap & Layer</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
-              >
-                ×
-              </button>
-            </div>
 
-            <div className="space-y-4 px-4 py-3">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400 mb-2">Basemap</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['osm', 'satellite', 'terrain'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setActiveBasemap(mode)}
-                      className="rounded-2xl border px-2.5 py-2 text-[12px] font-semibold transition-all"
-                      style={{
-                        background: activeBasemap === mode ? 'rgba(56, 189, 248, 0.18)' : 'rgba(15, 23, 42, 0.9)',
-                        borderColor: activeBasemap === mode ? '#38bdf8' : 'rgba(148, 163, 184, 0.16)',
-                        color: activeBasemap === mode ? '#cffafe' : '#cbd5e1',
-                      }}
-                    >
-                      {mode === 'osm' ? 'OSM' : mode === 'satellite' ? 'Satellite' : 'Terrain'}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      {/* Server Status Monitor */}
+      <ServerStatus />
 
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400 mb-2">Layer</div>
-                <div className="grid gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTES((prev) => !prev)}
-                    className="flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-sm font-semibold"
-                    style={{
-                      background: showTES ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.9)',
-                      borderColor: showTES ? '#34d399' : 'rgba(148, 163, 184, 0.16)',
-                      color: showTES ? '#a7f3d0' : '#cbd5e1',
-                    }}
-                  >
-                    <span>TES</span>
-                    <span>{showTES ? 'ON' : 'OFF'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDesa((prev) => !prev)}
-                    className="flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-sm font-semibold"
-                    style={{
-                      background: showDesa ? 'rgba(56, 189, 248, 0.12)' : 'rgba(15, 23, 42, 0.9)',
-                      borderColor: showDesa ? '#38bdf8' : 'rgba(148, 163, 184, 0.16)',
-                      color: showDesa ? '#bae6fd' : '#cbd5e1',
-                    }}
-                  >
-                    <span>Desa</span>
-                    <span>{showDesa ? 'ON' : 'OFF'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowEpicenter((prev) => !prev)}
-                    className="flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-sm font-semibold"
-                    style={{
-                      background: showEpicenter ? 'rgba(248, 113, 113, 0.12)' : 'rgba(15, 23, 42, 0.9)',
-                      borderColor: showEpicenter ? '#fca5a5' : 'rgba(148, 163, 184, 0.16)',
-                      color: showEpicenter ? '#fed7d7' : '#cbd5e1',
-                    }}
-                  >
-                    <span>Episentrum</span>
-                    <span>{showEpicenter ? 'ON' : 'OFF'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPanelOpen(true)}
-            className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-slate-950/90 text-slate-100 shadow-2xl backdrop-blur-lg"
-            style={{
-              minWidth: 56,
-              zIndex: 1001,
-            }}
-            title="Buka kontrol peta"
-          >
-            <span className="text-xl">☰</span>
-          </button>
-        )}
-      </div>
+      {/* Layer Controls */}
+      <LayerControl
+        onLayerToggle={handleLayerToggle}
+        onBasemapChange={handleBasemapChange}
+        onZoomPreset={handleZoomPreset}
+      />
+
+      {/* Export Panel */}
+      <ExportPanel onExport={handleExport} />
     </div>
   );
 }

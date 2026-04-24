@@ -215,6 +215,7 @@ def build_tes_cache(vektor_dir: str) -> Optional[dict]:
                         pass
 
                     tes_list.append({
+                        "id": f"TES-{len(tes_list)+1:02d}",
                         "name": name,
                         "kapasitas": kapasitas,
                         "lat": round(lat_c, 6) if lat_c else None,
