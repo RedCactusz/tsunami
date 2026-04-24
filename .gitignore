@@ -21,6 +21,7 @@ Thumbs.db
 *.pem
 
 # --- Proyek Lama & Data ---
+.notes/
 old_project/
-data/
+src/backend/data/
 .tmp/
