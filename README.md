@@ -342,7 +342,6 @@ Komgeo Kel. 3 - Magister Teknik Geomatika UGM
 
 ## ✉️ Contact & Support
 
-
 **Untuk pertanyaan teknis atau data:**
 - Hubungi salah satu anggota kelompok
 - Email: ...
