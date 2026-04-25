@@ -49,10 +49,16 @@ export default function RouteAnalysisPanel({
       car: 40
     };
 
+    // Gunakan TES yang dipilih, atau default ke TES-01 jika belum memilih
+    const tesId = selectedTesId || tesList[0]?.id || 'TES-01';
+
     const params: RoutingParams = {
       transport: transportMode,
       speed_kmh: speedMap[transportMode],
       safety_weight: safetyWeight,
+      tes_id: tesId,
+      origin_lat: customOrigin?.lat,
+      origin_lon: customOrigin?.lon,
     };
 
     await onAnalyzeRoutes(params);

@@ -9,10 +9,18 @@ interface ABMPanelProps {
   isLoading?: boolean;
 }
 
+interface ABMPanelProps {
+  transportMode: 'foot' | 'motor' | 'car';
+  onRunABM?: (params: ABMParams) => Promise<void>;
+  isLoading?: boolean;
+  hasSimulated?: boolean;  // Apakah SWE sudah dijalankan
+}
+
 export default function ABMPanel({
   transportMode,
   onRunABM,
   isLoading = false,
+  hasSimulated = false,
 }: ABMPanelProps) {
   const [warningTime, setWarningTime] = useState(20);
   const [duration, setDuration] = useState(120);
@@ -33,6 +41,37 @@ export default function ABMPanel({
 
   return (
     <>
+      {/* Integration Status Banner */}
+      <div className="mb-3 p-2 rounded-md border text-xs"
+        style={{
+          background: hasSimulated
+            ? 'rgba(34, 197, 94, 0.12)'
+            : 'rgba(251, 191, 36, 0.12)',
+          borderColor: hasSimulated
+            ? 'rgba(34, 197, 94, 0.3)'
+            : 'rgba(251, 191, 36, 0.3)',
+        }}>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">
+            {hasSimulated ? '✅' : '⚠️'}
+          </span>
+          <div>
+            <div className="font-bold" style={{
+              color: hasSimulated ? '#22c55e' : '#fbbf24'
+            }}>
+              {hasSimulated
+                ? 'Integrasi SWE Aktif'
+                : 'Jalankan Simulasi SWE Dulu'}
+            </div>
+            <div style={{ color: 'var(--muted)', marginTop: '2px' }}>
+              {hasSimulated
+                ? 'ABM akan menggunakan data tsunami untuk hazard-aware routing'
+                : 'ABM akan berjalan tanpa data tsunami (simplified mode)'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--muted)' }}>
         Parameter ABM Evakuasi
       </div>
