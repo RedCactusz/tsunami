@@ -25,3 +25,4 @@ Thumbs.db
 old_project/
 src/backend/data/
 .tmp/
+.vscode/

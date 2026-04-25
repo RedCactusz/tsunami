@@ -112,6 +112,7 @@ export default function MapComponent({
   const originMarkerRef = useRef<any>(null);
   const tesGroupRef = useRef<any>(null);
   const desaGroupRef = useRef<any>(null);
+  const routesGroupRef = useRef<any>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current || !isBrowser || mapRef.current || !L) return;
@@ -323,6 +324,54 @@ export default function MapComponent({
       });
     }
   }, [desaList, layerVisibility.desa]);
+
+  // 🚨 ROUTING VISUALIZATION: Draw evacuation routes as polylines
+  useEffect(() => {
+    if (!mapRef.current || !L) return;
+    const map = mapRef.current;
+
+    if (!routesGroupRef.current) {
+      routesGroupRef.current = L.layerGroup().addTo(map);
+    }
+
+    routesGroupRef.current.clearLayers();
+
+    if (layerVisibility.routes && routingResult?.routes) {
+      routingResult.routes.forEach((route) => {
+        // Convert [lat, lon] to Leaflet coordinates
+        const latlngs = route.route_path.map((coord) => [coord[0], coord[1]]);
+
+        // Polyline styling based on route status
+        const polylineOptions = {
+          color: route.color || '#4ade80',
+          weight: 3,
+          opacity: 0.8,
+          dashArray: route.status === 'darurat' ? '5, 5' : undefined, // Dashed for emergency routes
+        };
+
+        const polyline = L.polyline(latlngs, polylineOptions);
+
+        // Popup with route info
+        const popupContent = `
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b>${route.desa} → ${route.target_tes}</b><br>
+            Jarak: ${route.distance_km.toFixed(1)} km<br>
+            Waktu Jalan: ${route.walk_time_min.toFixed(0)} menit<br>
+            Status: <span style="color: ${route.color}; font-weight: bold;">
+              ${route.status === 'optimal' ? '✓ Optimal' : route.status === 'alternatif' ? '⚠ Alternatif' : '⛔ Darurat'}
+            </span><br>
+            Nilai: ${(route.score ? route.score * 100 : 0).toFixed(0)}%
+          </div>
+        `;
+
+        polyline.bindPopup(popupContent);
+        polyline.on('mouseover', () => polyline.setStyle({ weight: 5 }));
+        polyline.on('mouseout', () => polyline.setStyle({ weight: 3 }));
+
+        routesGroupRef.current.addLayer(polyline);
+      });
+    }
+  }, [routingResult, layerVisibility.routes]);
 
   return (
     <div className="flex-1 relative overflow-hidden">
