@@ -28,6 +28,8 @@ export interface ABMParams {
   sim_duration_min: number;   // durasi simulasi (mnt)
   flood_height_m: number;     // tinggi banjir inundasi
   transport: 'foot' | 'motor' | 'car';
+  // SWE result untuk integrasi hazard-aware routing
+  swe_result?: SWEResult | null;  // Hasil simulasi tsunami (opsional)
 }
 
 // ── Hasil Simulasi SWE ──────────────────────────────────────────

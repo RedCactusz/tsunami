@@ -94,6 +94,7 @@ export default function RightPanel({ onAnalyzeRoutes, onRunABM, isLoading = fals
             transportMode={transportMode}
             onRunABM={onRunABM}
             isLoading={isLoading}
+            hasSimulated={hasSimulated}
           />
         )}
       </div>

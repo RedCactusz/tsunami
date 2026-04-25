@@ -5,29 +5,29 @@
 //  Sidebar, BottomBar, RightPanel, dan Map.
 // ═══════════════════════════════════════════════
 
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
 import {
   checkServerStatus,
-  runSimulation,
-  runRouting,
-  runABM,
   fetchDesa,
   fetchTES,
-} from '@/services/api';
+  runABM,
+  runRouting,
+  runSimulation,
+} from "@/services/api";
 import type {
-  SimulationParams,
-  RoutingParams,
   ABMParams,
-  SWEResult,
-  ImpactResult,
-  RoutingResult,
   ABMResult,
   DesaData,
-  TESData,
+  ImpactResult,
+  RoutingParams,
+  RoutingResult,
   ServerStatus,
-} from '@/types';
+  SimulationParams,
+  SWEResult,
+  TESData,
+} from "@/types";
+import { useCallback, useEffect, useState } from "react";
 
 // ── Tipe state yang dikembalikan hook ────────────────────────────
 export interface SimulationState {
@@ -35,30 +35,30 @@ export interface SimulationState {
   serverStatus: ServerStatus;
   isLoading: boolean;
   loadingMessage: string;
-  isMockData: boolean;  // true kalau backend offline → pakai mock
+  isMockData: boolean; // true kalau backend offline → pakai mock
   error: string | null;
 
   // Hasil simulasi
-  sweResult:     SWEResult     | null;
-  impactResult:  ImpactResult  | null;
+  sweResult: SWEResult | null;
+  impactResult: ImpactResult | null;
   routingResult: RoutingResult | null;
-  abmResult:     ABMResult     | null;
+  abmResult: ABMResult | null;
 
   // Data admin (desa & TES)
   desaList: DesaData[];
-  tesList:  TESData[];
+  tesList: TESData[];
 
   // Flag apakah simulasi pernah dijalankan
   hasSimulated: boolean;
-  hasRouted:    boolean;
-  hasABM:       boolean;
+  hasRouted: boolean;
+  hasABM: boolean;
 
   // Actions
-  startSimulation: (params: SimulationParams)  => Promise<void>;
-  startRouting:    (params: RoutingParams)      => Promise<void>;
-  startABM:        (params: ABMParams)          => Promise<void>;
-  refreshServer:   ()                           => Promise<ServerStatus>;
-  resetResults:    ()                           => void;
+  startSimulation: (params: SimulationParams) => Promise<void>;
+  startRouting: (params: RoutingParams) => Promise<void>;
+  startABM: (params: ABMParams) => Promise<void>;
+  refreshServer: () => Promise<ServerStatus>;
+  resetResults: () => void;
 }
 
 // ════════════════════════════════════════════════
@@ -66,30 +66,32 @@ export interface SimulationState {
 // ════════════════════════════════════════════════
 export function useSimulation(): SimulationState {
   // ── Status ────────────────────────────────────
-  const [serverStatus, setServerStatus] = useState<ServerStatus>('checking');
-  const [isLoading,       setIsLoading]       = useState(false);
-  const [loadingMessage,  setLoadingMessage]  = useState('');
-  const [isMockData,      setIsMockData]      = useState(false);
-  const [error,           setError]           = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [isMockData, setIsMockData] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Hasil Simulasi ────────────────────────────
-  const [sweResult,     setSweResult]     = useState<SWEResult     | null>(null);
-  const [impactResult,  setImpactResult]  = useState<ImpactResult  | null>(null);
-  const [routingResult, setRoutingResult] = useState<RoutingResult | null>(null);
-  const [abmResult,     setAbmResult]     = useState<ABMResult     | null>(null);
+  const [sweResult, setSweResult] = useState<SWEResult | null>(null);
+  const [impactResult, setImpactResult] = useState<ImpactResult | null>(null);
+  const [routingResult, setRoutingResult] = useState<RoutingResult | null>(
+    null,
+  );
+  const [abmResult, setAbmResult] = useState<ABMResult | null>(null);
 
   // ── Data Admin ────────────────────────────────
   const [desaList, setDesaList] = useState<DesaData[]>([]);
-  const [tesList,  setTesList]  = useState<TESData[]>([]);
+  const [tesList, setTesList] = useState<TESData[]>([]);
 
   // ── Flags ─────────────────────────────────────
   const [hasSimulated, setHasSimulated] = useState(false);
-  const [hasRouted,    setHasRouted]    = useState(false);
-  const [hasABM,       setHasABM]       = useState(false);
+  const [hasRouted, setHasRouted] = useState(false);
+  const [hasABM, setHasABM] = useState(false);
 
   // ── Cek status server ─────────────────────────
   const refreshServer = useCallback(async () => {
-    setServerStatus('checking');
+    setServerStatus("checking");
     const status = await checkServerStatus();
     setServerStatus(status);
     return status;
@@ -115,10 +117,10 @@ export function useSimulation(): SimulationState {
   const startSimulation = useCallback(async (params: SimulationParams) => {
     setIsLoading(true);
     setError(null);
-    setLoadingMessage('Menginisialisasi solver SWE...');
+    setLoadingMessage("Menginisialisasi solver SWE...");
 
     try {
-      setLoadingMessage('Memproses gelombang tsunami...');
+      setLoadingMessage("Memproses gelombang tsunami...");
       const result = await runSimulation(params);
 
       setSweResult(result.swe);
@@ -127,12 +129,12 @@ export function useSimulation(): SimulationState {
       setHasSimulated(true);
 
       if (result.isMock) {
-        setLoadingMessage('Selesai (mode demo — backend offline)');
+        setLoadingMessage("Selesai (mode demo — backend offline)");
       } else {
-        setLoadingMessage('Simulasi SWE selesai ✓');
+        setLoadingMessage("Simulasi SWE selesai ✓");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Simulasi gagal: ${msg}`);
     } finally {
       setIsLoading(false);
@@ -143,18 +145,21 @@ export function useSimulation(): SimulationState {
   const startRouting = useCallback(async (params: RoutingParams) => {
     setIsLoading(true);
     setError(null);
-    setLoadingMessage('Menganalisis jaringan jalan...');
+    setLoadingMessage("Menganalisis jaringan jalan...");
 
     try {
-      setLoadingMessage('Menghitung rute evakuasi...');
+      setLoadingMessage("Menghitung rute evakuasi...");
       const result = await runRouting(params);
 
       setRoutingResult(result);
       setIsMockData(result.isMock);
+
       setHasRouted(true);
-      setLoadingMessage(result.isMock ? 'Selesai (mode demo)' : 'Analisis rute selesai ✓');
+      setLoadingMessage(
+        result.isMock ? "Selesai (mode demo)" : "Analisis rute selesai ✓",
+      );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Routing gagal: ${msg}`);
     } finally {
       setIsLoading(false);
@@ -162,26 +167,38 @@ export function useSimulation(): SimulationState {
   }, []);
 
   // ── Simulasi ABM ──────────────────────────────
-  const startABM = useCallback(async (params: ABMParams) => {
-    setIsLoading(true);
-    setError(null);
-    setLoadingMessage('Menginisialisasi agen ABM...');
+  const startABM = useCallback(
+    async (params: ABMParams) => {
+      setIsLoading(true);
+      setError(null);
+      setLoadingMessage("Menginisialisasi agen ABM...");
 
-    try {
-      setLoadingMessage('Mensimulasikan pergerakan penduduk...');
-      const result = await runABM(params);
+      try {
+        setLoadingMessage("Mensimulasikan pergerakan penduduk...");
 
-      setAbmResult(result);
-      setIsMockData(result.isMock);
-      setHasABM(true);
-      setLoadingMessage(result.isMock ? 'Selesai (mode demo)' : 'Simulasi ABM selesai ✓');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      setError(`ABM gagal: ${msg}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+        // Kirim SWE result ke ABM untuk hazard-aware routing
+        const abmParams = {
+          ...params,
+          swe_result: sweResult, // Attach SWE result
+        };
+
+        const result = await runABM(abmParams);
+
+        setAbmResult(result);
+        setIsMockData(result.isMock);
+        setHasABM(true);
+        setLoadingMessage(
+          result.isMock ? "Selesai (mode demo)" : "Simulasi ABM selesai ✓",
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setError(`ABM gagal: ${msg}`);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [sweResult],
+  ); // Tambah dependency sweResult
 
   // ── Reset semua hasil ─────────────────────────
   const resetResults = useCallback(() => {
