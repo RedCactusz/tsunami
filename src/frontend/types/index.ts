@@ -3,6 +3,27 @@
 //  Semua tipe data yang dipakai frontend ↔ backend
 // ═══════════════════════════════════════════════
 
+// ── GeoJSON Types ─────────────────────────────────────────────────
+declare global {
+  namespace GeoJSON {
+    type Geometry = {
+      type: 'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon';
+      coordinates: any;
+    };
+
+    type FeatureCollection<G extends Geometry = Geometry, P = any> = {
+      type: 'FeatureCollection';
+      features: Feature<G, P>[];
+    };
+
+    type Feature<G extends Geometry = Geometry, P = any> = {
+      type: 'Feature';
+      geometry: G;
+      properties: P;
+    };
+  }
+}
+
 // ── Parameter Simulasi (dikirim ke backend) ──────────────────────
 export interface SimulationParams {
   magnitude: number;        // Mw (5.0 – 9.5)
@@ -91,7 +112,10 @@ export interface TESData {
   lat: number;
   lon: number;
   kapasitas: number;
-  props?: Record<string, string>;
+  jenis?: string;
+  fasilitas?: string;
+  luas_m2?: number;
+  keterangan?: string;
 }
 
 // ── Rute Evakuasi ───────────────────────────────────────────────

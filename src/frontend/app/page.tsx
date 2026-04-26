@@ -36,7 +36,6 @@ export default function WebGISPage() {
 
       <Header
         serverStatus={sim.serverStatus}
-        isMockData={sim.isMockData}
         onRefreshServer={sim.refreshServer}
       />
 
@@ -106,7 +105,6 @@ export default function WebGISPage() {
             impactResult={sim.impactResult}
             sweResult={sim.sweResult}
             routingResult={sim.routingResult}
-            isMockData={sim.isMockData}
           />
         </div>
         <RightPanel

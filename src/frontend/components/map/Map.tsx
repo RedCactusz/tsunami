@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import type { DesaData, TESData, SWEResult, RoutingResult, ABMResult } from '@/types';
+import type { ABMResult, DesaData, RoutingResult, SWEResult, TESData } from '@/types';
+import { useEffect, useRef, useState } from 'react';
+import ExportPanel from './ExportPanel';
 import LayerControl from './LayerControl';
 import ServerStatus from './ServerStatus';
-import ExportPanel from './ExportPanel';
 
 let L: any;
 const isBrowser = typeof window !== 'undefined';
@@ -34,7 +34,7 @@ interface MapProps {
   onOriginSelect?: (coords: { lat: number; lon: number }) => void;
 }
 
-const defaultCenter: [number, number] = [-7.9, 110.37];
+const defaultCenter: [number, number] = [-7.95, 110.35];
 
 export default function MapComponent({
   onBasemapChange,
@@ -113,6 +113,7 @@ export default function MapComponent({
   const tesGroupRef = useRef<any>(null);
   const desaGroupRef = useRef<any>(null);
   const routesGroupRef = useRef<any>(null);
+  const inundationGroupRef = useRef<any>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current || !isBrowser || mapRef.current || !L) return;
@@ -154,6 +155,7 @@ export default function MapComponent({
       originMarkerRef.current = null;
       tesGroupRef.current = null;
       desaGroupRef.current = null;
+      inundationGroupRef.current = null;
     };
   }, []);
 
@@ -372,6 +374,101 @@ export default function MapComponent({
       });
     }
   }, [routingResult, layerVisibility.routes]);
+
+  // 🌊 SWE INUNDATION VISUALIZATION: Render flood depth points
+  useEffect(() => {
+    if (!mapRef.current || !L) return;
+    const map = mapRef.current;
+
+    if (!inundationGroupRef.current) {
+      inundationGroupRef.current = L.layerGroup().addTo(map);
+    }
+
+    inundationGroupRef.current.clearLayers();
+
+    if (layerVisibility.inundation && sweResult?.inundation_geojson?.features) {
+      const features = sweResult.inundation_geojson.features;
+
+      features.forEach((feature: any) => {
+        if (feature.geometry?.type !== 'Point') return;
+
+        const [lon, lat] = feature.geometry.coordinates;
+        const props = feature.properties || {};
+        const floodDepth = props.flood_depth || 0;
+        const risk = props.risk || 'RENDAH';
+        const color = props.color || '#ffe650';
+        const elev = props.elev_m || 0;
+        const distKm = props.dist_km || 0;
+
+        // Skip if flood depth is too small
+        if (floodDepth < 0.05) return;
+
+        // Circle size based on flood depth (larger = deeper)
+        const radius = Math.min(25, 8 + floodDepth * 2);
+
+        const circleMarker = L.circleMarker([lat, lon], {
+          radius: radius,
+          fillColor: color,
+          color: '#fff',
+          weight: 1.5,
+          opacity: 0.9,
+          fillOpacity: 0.7,
+        });
+
+        // Tooltip with flood information
+        const tooltipContent = `
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;">
+            <b style="color: ${color};">🌊 Area Tergenang</b><br>
+            <hr style="margin: 4px 0; border: none; border-top: 1px solid #ddd;">
+            Kedalaman: <b>${floodDepth.toFixed(2)} m</b><br>
+            Risiko: <b style="color: ${color};">${risk}</b><br>
+            Elevasi: ${elev.toFixed(1)} m<br>
+            Jarak dari pantai: ${distKm.toFixed(2)} km<br>
+          </div>
+        `;
+
+        circleMarker.bindTooltip(tooltipContent, {
+          permanent: false,
+          direction: 'top',
+          offset: [0, -radius - 5],
+        });
+
+        // Optional: Popup with more details on click
+        const popupContent = `
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; color: ${color}; font-size: 14px;">🌊 Detail Inundasi</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 4px 0; color: #666;">Kedalaman:</td><td style="padding: 4px 0; font-weight: bold;">${floodDepth.toFixed(2)} m</td></tr>
+              <tr><td style="padding: 4px 0; color: #666;">Risiko:</td><td style="padding: 4px 0;"><span style="color: ${color}; font-weight: bold;">${risk}</span></td></tr>
+              <tr><td style="padding: 4px 0; color: #666;">Elevasi:</td><td style="padding: 4px 0;">${elev.toFixed(1)} m</td></tr>
+              <tr><td style="padding: 4px 0; color: #666;">Jarak Pantai:</td><td style="padding: 4px 0;">${distKm.toFixed(2)} km</td></tr>
+              <tr><td style="padding: 4px 0; color: #666;">Koordinat:</td><td style="padding: 4px 0;">${lat.toFixed(5)}, ${lon.toFixed(5)}</td></tr>
+            </table>
+          </div>
+        `;
+
+        circleMarker.bindPopup(popupContent);
+
+        // Hover effect
+        circleMarker.on('mouseover', () => {
+          circleMarker.setStyle({
+            weight: 2.5,
+            fillOpacity: 0.9,
+          });
+        });
+        circleMarker.on('mouseout', () => {
+          circleMarker.setStyle({
+            weight: 1.5,
+            fillOpacity: 0.7,
+          });
+        });
+
+        inundationGroupRef.current.addLayer(circleMarker);
+      });
+
+      console.log(`[Map] Rendered ${features.length} inundation points`);
+    }
+  }, [sweResult, layerVisibility.inundation]);
 
   return (
     <div className="flex-1 relative overflow-hidden">

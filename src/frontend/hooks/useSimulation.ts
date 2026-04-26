@@ -35,7 +35,6 @@ export interface SimulationState {
   serverStatus: ServerStatus;
   isLoading: boolean;
   loadingMessage: string;
-  isMockData: boolean; // true kalau backend offline → pakai mock
   error: string | null;
 
   // Hasil simulasi
@@ -69,7 +68,6 @@ export function useSimulation(): SimulationState {
   const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  const [isMockData, setIsMockData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Hasil Simulasi ────────────────────────────
@@ -103,7 +101,6 @@ export function useSimulation(): SimulationState {
       const [desaRes, tesRes] = await Promise.all([fetchDesa(), fetchTES()]);
       setDesaList(desaRes.desa);
       setTesList(tesRes.tes);
-      if (desaRes.isMock || tesRes.isMock) setIsMockData(true);
     }
     loadAdminData();
 
@@ -125,14 +122,9 @@ export function useSimulation(): SimulationState {
 
       setSweResult(result.swe);
       setImpactResult(result.impact);
-      setIsMockData(result.isMock);
       setHasSimulated(true);
 
-      if (result.isMock) {
-        setLoadingMessage("Selesai (mode demo — backend offline)");
-      } else {
-        setLoadingMessage("Simulasi SWE selesai ✓");
-      }
+      setLoadingMessage("Simulasi SWE selesai ✓");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Simulasi gagal: ${msg}`);
@@ -152,12 +144,8 @@ export function useSimulation(): SimulationState {
       const result = await runRouting(params);
 
       setRoutingResult(result);
-      setIsMockData(result.isMock);
-
       setHasRouted(true);
-      setLoadingMessage(
-        result.isMock ? "Selesai (mode demo)" : "Analisis rute selesai ✓",
-      );
+      setLoadingMessage("Analisis rute selesai ✓");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Routing gagal: ${msg}`);
@@ -185,11 +173,8 @@ export function useSimulation(): SimulationState {
         const result = await runABM(abmParams);
 
         setAbmResult(result);
-        setIsMockData(result.isMock);
         setHasABM(true);
-        setLoadingMessage(
-          result.isMock ? "Selesai (mode demo)" : "Simulasi ABM selesai ✓",
-        );
+        setLoadingMessage("Simulasi ABM selesai ✓");
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setError(`ABM gagal: ${msg}`);
@@ -210,14 +195,12 @@ export function useSimulation(): SimulationState {
     setHasRouted(false);
     setHasABM(false);
     setError(null);
-    setIsMockData(false);
   }, []);
 
   return {
     serverStatus,
     isLoading,
     loadingMessage,
-    isMockData,
     error,
     sweResult,
     impactResult,

@@ -75,7 +75,7 @@ export default function FaultSelector({ selectedFault, onSelectFault, className 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [faultSources, setFaultSources] = useState<{ category: string; icon: string; faults: FaultSource[] }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
+  const [error, setError] = useState<string | null>(null);
 
   // Design tokens
   const theme = {
@@ -93,14 +93,14 @@ export default function FaultSelector({ selectedFault, onSelectFault, className 
     async function loadFaults() {
       try {
         setIsLoading(true);
+        setError(null);
         const result = await getFaultList();
         const mapped = mapFaultData(result.faults);
         setFaultSources(mapped);
-        setDataSource(result.isMock ? 'mock' : 'api');
         console.log(`[FaultSelector] Loaded ${Object.keys(result.faults).length} faults from ${result.source}`);
       } catch (err) {
         console.error('[FaultSelector] Failed to load faults:', err);
-        setDataSource('mock');
+        setError('Gagal memuat data fault dari backend');
       } finally {
         setIsLoading(false);
       }
@@ -148,11 +148,6 @@ export default function FaultSelector({ selectedFault, onSelectFault, className 
                 {selectedFaultInfo.recurrence !== '—' && ` • ${selectedFaultInfo.recurrence}`}
               </div>
             )}
-            {!selectedFault && dataSource === 'mock' && !isLoading && (
-              <div className="text-xs mt-1" style={{ color: '#fbbf24' }}>
-                ⚠️ Mode Demo (Mock Data)
-              </div>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -173,7 +168,14 @@ export default function FaultSelector({ selectedFault, onSelectFault, className 
             </div>
           ) : faultSources.length === 0 ? (
             <div className="p-8 text-center" style={{ color: theme.muted }}>
-              <div className="text-sm">Tidak ada fault tersedia</div>
+              {error ? (
+                <>
+                  <div className="text-sm" style={{ color: '#f87171' }}>⚠️ {error}</div>
+                  <div className="text-xs mt-2 opacity-70">Pastikan backend berjalan dan data fault tersedia</div>
+                </>
+              ) : (
+                <div className="text-sm">Tidak ada fault tersedia</div>
+              )}
             </div>
           ) : (
             faultSources.map((category) => (
@@ -243,7 +245,7 @@ export default function FaultSelector({ selectedFault, onSelectFault, className 
           )}
 
           {/* Footer */}
-          {!isLoading && dataSource === 'api' && (
+          {!isLoading && faultSources.length > 0 && (
             <div className="p-2 text-center" style={{ borderTop: `1px solid ${theme.border2}` }}>
               <div className="text-xs" style={{ color: theme.muted }}>
                 ✅ Data dari Backend Shapefile ({faultSources.flatMap(c => c.faults).length} fault)
