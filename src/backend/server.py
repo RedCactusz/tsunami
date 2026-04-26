@@ -912,7 +912,12 @@ async def post_abm(params: ABMParams):
             # Run ABM simulation
             result = solver.run_abm(body)
 
-            logger.info(f"[ABM] Simulation complete: {result['safe_count']}/{result['total_population']} safe")
+            # Check if simulation failed (no agents generated)
+            if 'error' in result:
+                logger.warning(f"[ABM] {result['error']}")
+                return result
+
+            logger.info(f"[ABM] Simulation complete: {result['arrived']}/{result['total_population']} arrived, {result['stranded']} stranded")
             return result
 
         except Exception as e:

@@ -2,39 +2,58 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════
-   DESIGN TOKENS - WebGIS Tsunami Simulator
+   DESIGN TOKENS - WebGIS Tsunami Simulator (Clean & Readable)
 ═══════════════════════════════════════════════ */
 :root {
-  /* Background & Panels */
-  --bg:        #060d1b;
-  --panel:     #0a1628;
-  --panel2:    #0d1d35;
-  --border:    rgba(56, 189, 248, 0.14);
-  --border2:   rgba(56, 189, 248, 0.08);
+  /* Primary Colors - Soft Blue */
+  --primary:    #3b82f6;
+  --primary-light: #60a5fa;
+  --primary-dark: #2563eb;
+  --primary-soft: #dbeafe;
 
-  /* Colors */
-  --accent:    #38bdf8;
-  --accent2:   #0ea5e9;
-  --a2:        #0284c7;
-  --text:      #ddeeff;
-  --text2:     #a8ccee;
-  --muted:     rgba(148, 200, 240, 0.55);
-  --ok:        #34d399;
+  /* Secondary Colors - Warm Yellow */
+  --secondary:  #f59e0b;
+  --secondary-light: #fef3c7;
+  --secondary-dark: #d97706;
+
+  /* Background & Panels - WHITE for readability */
+  --bg:        #ffffff;
+  --panel:     #ffffff;
+  --panel2:    #f8fafc;
+
+  /* Borders - Medium Gray */
+  --border:    #e2e8f0;
+  --border2:   #cbd5e1;
+
+  /* Text Colors - DARK for readability */
+  --text:      #1e293b;
+  --text2:     #475569;
+  --muted:     #94a3b8;
+  --light:     #f1f5f9;
+
+  /* Accent Colors */
+  --accent:    #3b82f6;
+  --accent2:   #60a5fa;
+  --ok:        #22c55e;
   --warn:      #fbbf24;
-  --danger:    #f87171;
-  --batnas:    #fb923c;
-  --gebco:     #38bdf8;
-  --blend:     #c084fc;
+  --danger:    #ef4444;
+
+  /* Legacy compatibility */
+  --a2:        #3b82f6;
+  --batnas:    #d97706;
+  --gebco:     #3b82f6;
+  --blend:     #a78bfa;
 
   /* Spacing */
-  --radius-sm: 6px;
-  --radius:    10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
 
   /* Effects */
-  --shadow:    0 4px 20px rgba(0, 0, 0, 0.45);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --trans:     0.18s ease;
+  --shadow:    0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.08);
+  --trans:     0.25s ease;
 }
 
 * {
@@ -57,10 +76,45 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Card/Panel base styles */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Button base styles */
+.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  transition: all var(--trans);
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--secondary-light);
+  color: #78350f;
+  border: 1px solid var(--secondary);
+}
+
+.btn-secondary:hover {
+  background: var(--secondary);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -68,12 +122,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.2);
+  background: #d1d5db;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.4);
+  background: #9ca3af;
 }
 
 /* Input & Select Styles */
@@ -81,22 +135,22 @@ input[type="range"],
 input[type="number"],
 select {
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 input[type="range"] {
-  accent-color: var(--accent);
+  accent-color: var(--primary);
   cursor: pointer;
-  height: 4px;
+  height: 5px;
 }
 
 input[type="number"],
 select {
-  background: rgba(0, 18, 45, 0.7);
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 2px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  padding: 6px 9px;
+  padding: 6px 10px;
   cursor: pointer;
   transition: var(--trans);
   outline: none;
@@ -104,11 +158,11 @@ select {
 
 input[type="number"]:focus,
 select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.1);
 }
 
 select option {
-  background: #0a1628;
+  background: #ffffff;
   color: var(--text);
 }

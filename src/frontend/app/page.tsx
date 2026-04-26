@@ -17,6 +17,7 @@ export default function WebGISPage() {
   const [isPickingEpicenter, setIsPickingEpicenter] = useState(false);
   const [customOrigin, setCustomOrigin] = useState<{ lat: number; lon: number } | null>(null);
   const [isPickingOrigin, setIsPickingOrigin] = useState(false);
+  const [selectedFault, setSelectedFault] = useState<string | null>(null);
 
   const handleSimulationRun = async (params: SimulationParams) => {
     await sim.startSimulation(params);
@@ -74,6 +75,7 @@ export default function WebGISPage() {
           routingResult={sim.routingResult}
           abmResult={sim.abmResult}
           tesList={sim.tesList}
+          faultData={sim.faultData}
           hasSimulated={sim.hasSimulated}
           customEpicenter={customEpicenter}
           isPickingEpicenter={isPickingEpicenter}
@@ -107,6 +109,8 @@ export default function WebGISPage() {
               setCustomOrigin(coords);
               setIsPickingOrigin(false);
             }}
+            selectedFault={sim.selectedFault}
+            faultData={sim.faultData}
           />
           {/* <BottomBar
             simulationActive={sim.hasSimulated}

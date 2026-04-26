@@ -11,15 +11,15 @@ export default function ExportPanel({ onExport, className = '' }: ExportPanelPro
   const [isOpen, setIsOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('');
 
-  // Design tokens matching old index.html
+  // Design tokens - light theme
   const theme = {
-    panel: '#0a1628',
-    border: 'rgba(56, 189, 248, 0.14)',
-    border2: 'rgba(56, 189, 248, 0.08)',
-    accent: '#38bdf8',
-    text: '#ddeeff',
-    text2: '#a8ccee',
-    muted: 'rgba(148, 200, 240, 0.55)',
+    panel: '#ffffff',
+    border: '#e2e8f0',
+    border2: '#f1f5f9',
+    accent: '#3b82f6',
+    text: '#1e293b',
+    text2: '#475569',
+    muted: '#64748b',
   };
 
   const exportOptions = [
@@ -70,9 +70,9 @@ export default function ExportPanel({ onExport, className = '' }: ExportPanelPro
         onClick={() => setIsOpen(!isOpen)}
         className="font-medium transition-colors px-4 py-2 rounded-lg shadow-lg"
         style={{
-          background: 'linear-gradient(135deg,  rgb(55, 112, 137), rgb(0, 39, 55))',
-          border: `1px solid ${theme.accent}`,
-          color: theme.accent
+          background: '#3b82f6',
+          border: `1px solid #2563eb`,
+          color: '#ffffff'
         }}
       >
         <span className="text-lg">📤</span>
@@ -99,7 +99,7 @@ export default function ExportPanel({ onExport, className = '' }: ExportPanelPro
                     background: 'transparent',
                     color: theme.text2
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = theme.border2}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
                   <span className="text-xl">{option.icon}</span>
@@ -119,16 +119,16 @@ export default function ExportPanel({ onExport, className = '' }: ExportPanelPro
                         onClick={() => handleExport(option.id, format.id)}
                         className="w-full text-left p-3 rounded-md transition-colors"
                         style={{
-                          background: 'rgba(56, 189, 248, 0.08)',
+                          background: '#eff6ff',
                           border: `1px solid ${theme.border}`,
                           color: theme.text2
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(56, 189, 248, 0.14)';
+                          e.currentTarget.style.background = '#dbeafe';
                           e.currentTarget.style.borderColor = theme.accent;
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)';
+                          e.currentTarget.style.background = '#eff6ff';
                           e.currentTarget.style.borderColor = theme.border;
                         }}
                       >
@@ -142,15 +142,22 @@ export default function ExportPanel({ onExport, className = '' }: ExportPanelPro
             ))}
           </div>
 
-          <div className="p-3" style={{ borderTop: `1px solid ${theme.border2}`, background: 'rgba(56, 189, 248, 0.04)' }}>
+          <div className="p-3" style={{ borderTop: `1px solid ${theme.border2}`, background: '#f8fafc' }}>
             <button
               onClick={() => setIsOpen(false)}
-              className="w-full px-3 py-2 rounded-md transition-colors"
+              className="w-full px-3 py-2 rounded-md transition-colors font-semibold"
               style={{
-                color: theme.muted
+                background: '#e2e8f0',
+                color: theme.text2
               }}
-              onMouseEnter={(e) => e.currentTarget.style.color = theme.text2}
-              onMouseLeave={(e) => e.currentTarget.style.color = theme.muted}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#cbd5e1';
+                e.currentTarget.style.color = theme.text;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#e2e8f0';
+                e.currentTarget.style.color = theme.text2;
+              }}
             >
               Tutup
             </button>

@@ -20,18 +20,18 @@ export default function ServerStatus({ className = '' }: ServerStatusProps) {
   });
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Design tokens matching old index.html
+  // Design tokens - light theme
   const theme = {
-    panel: '#0a1628',
-    border: 'rgba(56, 189, 248, 0.14)',
-    border2: 'rgba(56, 189, 248, 0.08)',
-    accent: '#38bdf8',
-    text: '#ddeeff',
-    text2: '#a8ccee',
-    muted: 'rgba(148, 200, 240, 0.55)',
-    ok: '#34d399',
-    warn: '#fbbf24',
-    danger: '#f87171',
+    panel: '#ffffff',
+    border: '#e2e8f0',
+    border2: '#f1f5f9',
+    accent: '#3b82f6',
+    text: '#1e293b',
+    text2: '#475569',
+    muted: '#64748b',
+    ok: '#22c55e',
+    warn: '#f59e0b',
+    danger: '#ef4444',
   };
 
   const checkServerStatus = async () => {
@@ -109,7 +109,7 @@ export default function ServerStatus({ className = '' }: ServerStatusProps) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full p-3 flex items-center justify-between hover:bg-opacity-50 transition-colors"
           style={{
-            background: 'rgba(56, 189, 248, 0.06)',
+            background: '#f8fafc',
             color: theme.text2
           }}
         >
@@ -163,10 +163,10 @@ export default function ServerStatus({ className = '' }: ServerStatusProps) {
 
               <button
                 onClick={checkServerStatus}
-                className="w-full px-3 py-1 text-sm rounded-md transition-colors"
+                className="w-full px-3 py-2 text-sm rounded-md transition-colors font-semibold"
                 style={{
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  color: theme.accent,
+                  background: '#dbeafe',
+                  color: '#1d4ed8',
                   border: `1px solid ${theme.border}`
                 }}
               >

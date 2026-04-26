@@ -1044,6 +1044,12 @@ class _ABMSimulator:
                                 ag.counted = True
                         ag.status = new_status
                         ag.dist_covered_m = float(agent_dists[idx])
+
+                        # Update current_path_idx for position interpolation
+                        if ag.path and len(ag.path) >= 2:
+                            ag.current_path_idx = self._get_current_node_idx(
+                                ag.path, ag.dist_covered_m
+                            )
                     
                     self._record_timeline(current_time, n_steps, step)
         else:
@@ -1067,6 +1073,42 @@ class _ABMSimulator:
         
         return self._build_results()
     
+    def _get_interpolated_position(self, path: List[int], dist_covered: float) -> Tuple[float, float]:
+        """Get interpolated (lat, lon) position along path based on distance covered."""
+        if not path or len(path) < 2:
+            return None
+
+        if dist_covered <= 0:
+            if path[0] in self.graph.nodes:
+                return self.graph.nodes[path[0]]
+            return None
+
+        accumulated = 0.0
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            if u not in self.graph.nodes or v not in self.graph.nodes:
+                continue
+            lat1, lon1 = self.graph.nodes[u]
+            lat2, lon2 = self.graph.nodes[v]
+
+            meta = self.graph.edge_meta.get((u, v))
+            seg_dist = meta['distance_m'] if meta else 0
+            if seg_dist <= 0:
+                seg_dist = haversine_m(lat1, lon1, lat2, lon2)
+
+            if accumulated + seg_dist >= dist_covered:
+                remaining = dist_covered - accumulated
+                fraction = remaining / seg_dist if seg_dist > 0 else 0
+                lat = lat1 + (lat2 - lat1) * fraction
+                lon = lon1 + (lon2 - lon1) * fraction
+                return (lat, lon)
+            accumulated += seg_dist
+
+        last_nid = path[-1]
+        if last_nid in self.graph.nodes:
+            return self.graph.nodes[last_nid]
+        return None
+
     def _record_timeline(self, current_time: float, n_steps: int, step: int):
         """Record timeline snapshot for animation."""
         total_arrived = sum(ag.population for ag in self.agents if ag.status == "arrived")
@@ -1080,15 +1122,20 @@ class _ABMSimulator:
         for ag in self.agents:
             if ag.status in ("arrived", "stranded", "moving"):
                 lat, lon = ag.home_lat, ag.home_lon
-                if ag.path and ag.current_path_idx < len(ag.path):
-                    nid = ag.path[ag.current_path_idx]
-                    if nid in self.graph.nodes:
-                        lat, lon = self.graph.nodes[nid]
+
+                # Use interpolated position for moving agents with path
+                if ag.path and len(ag.path) >= 2:
+                    interpolated = self._get_interpolated_position(ag.path, ag.dist_covered_m)
+                    if interpolated:
+                        lat, lon = interpolated
+
+                # Override with shelter position for arrived agents
                 if ag.status == "arrived" and ag.shelter_id is not None:
                     for sh in self.shelters:
                         if sh.id == ag.shelter_id:
                             lat, lon = sh.lat, sh.lon
                             break
+
                 positions.append({
                     "id": ag.id, "lat": lat, "lon": lon,
                     "status": ag.status, "pop": ag.population,
@@ -1764,7 +1811,8 @@ class EvacuationABMSolver:
             flood_depth_at_desa = 0.0
             
             if has_kdtree:
-                dist, idx = self._inundation_kdtree.query([dlat, dlon], distance_upper_bound=0.008)
+                # Increased distance from 0.008 (~890m) to 0.05 (~5.5km) to include more desa
+                dist, idx = self._inundation_kdtree.query([dlat, dlon], distance_upper_bound=0.05)
                 is_affected = (dist != float('inf'))
                 if is_affected and hasattr(self, '_inundation_depths') and idx < len(self._inundation_depths):
                     flood_depth_at_desa = self._inundation_depths[idx]

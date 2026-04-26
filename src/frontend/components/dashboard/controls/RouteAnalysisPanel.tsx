@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { RoutingParams, TESData } from '@/types';
 import TransportModeSelector from './TransportModeSelector';
-import SafetyWeightSlider from './SafetyWeightSlider';
+// import SafetyWeightSlider from './SafetyWeightSlider'; // Hidden - Coming Soon
 
 interface RouteAnalysisPanelProps {
   transportMode: 'foot' | 'motor' | 'car';
@@ -65,72 +65,75 @@ export default function RouteAnalysisPanel({
   };
 
   return (
-    <>
-      <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
-        <div className="flex items-center gap-2 p-2 rounded-md mb-3" style={{
-          background: 'rgba(0, 18, 45, 0.6)',
-          border: '1px solid var(--border2)',
+    <div className="space-y-3">
+      {/* Status bar */}
+      <div className="flex items-center gap-2 p-2.5 rounded-lg" style={{
+        background: '#f0fdf4',
+        border: '1px solid #86efac',
+      }}>
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{
+          background: '#22c55e',
+          boxShadow: '0 0 6px #22c55e',
+        }} />
+        <span className="flex-1 text-xs" style={{ color: '#166534' }}>
+          Data jalan OSM dimuat
+        </span>
+        <span className="text-xs px-2.5 py-1 rounded-lg border font-semibold" style={{
+          background: '#dcfce7',
+          borderColor: '#86efac',
+          color: '#15803d',
         }}>
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{
-            background: '#4ade80',
-            boxShadow: '0 0 6px #4ade80',
-          }} />
-          <span className="flex-1 text-xs" style={{ color: 'var(--muted)' }}>
-            Data jalan OSM dimuat
-          </span>
-          <button className="text-xs px-2 py-1 rounded border font-semibold transition-all" style={{
-            background: 'rgba(56, 189, 248, 0.12)',
-            borderColor: 'rgba(56, 189, 248, 0.25)',
-            color: 'var(--accent)',
-          }}>
-            🔄 Muat
-          </button>
-        </div>
+          ✅ Ready
+        </span>
       </div>
 
-      <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
-        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-          Titik Asal & Tujuan
+      {/* Titik Asal & Tujuan */}
+      <div>
+        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#475569' }}>
+          📍 Titik Asal & Tujuan
         </div>
 
         <div className="mb-2">
-          <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>📍 Titik Asal (Zona Bahaya)</div>
           <button
             onClick={onPickOriginToggle}
-            className="w-full flex items-center gap-2 px-2 py-2 rounded-md border-2 font-semibold text-xs"
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border font-semibold text-xs"
             style={{
-              borderColor: customOrigin ? 'var(--accent)' : 'var(--accent)',
+              borderColor: customOrigin ? '#3b82f6' : '#cbd5e1',
               borderStyle: customOrigin ? 'solid' : 'dashed',
-              background: isPickingOrigin ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.12)',
-              color: 'var(--accent)',
+              background: isPickingOrigin ? '#dbeafe' : '#eff6ff',
+              color: isPickingOrigin || customOrigin ? '#1d4ed8' : '#64748b',
             }}
           >
-            {isPickingOrigin ? '🖱️ Klik peta — pilih titik asal...' : customOrigin ? '✅ ' + customOrigin.lat.toFixed(5) + '°, ' + customOrigin.lon.toFixed(5) + '°' : '🖱️ Klik peta untuk tentukan titik asal'}
+            <span className="flex-1 text-left">
+              {isPickingOrigin ? '🖱️ Klik peta...' : customOrigin ? `✅ ${customOrigin.lat.toFixed(4)}°, ${customOrigin.lon.toFixed(4)}°` : '🖱️ Pilih titik asal di peta'}
+            </span>
+            {customOrigin && !isPickingOrigin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResetOrigin?.();
+                }}
+                className="px-2 py-1 rounded text-xs font-semibold"
+                style={{
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  border: '1px solid #fca5a5',
+                }}
+              >
+                Reset
+              </button>
+            )}
           </button>
-          {customOrigin && (
-            <button
-              onClick={onResetOrigin}
-              className="w-full mt-1 py-1 px-2 rounded text-xs"
-              style={{
-                background: 'rgba(246, 95, 95, 0.08)',
-                border: '1px solid rgba(248, 113, 113, 0.18)',
-                color: '#f87171',
-              }}
-            >
-              Reset titik asal
-            </button>
-          )}
         </div>
 
         <div>
-          <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>🏁 Titik Tujuan (TES)</div>
           <select
             value={selectedTesId || ''}
             onChange={(e) => setSelectedTesId(e.target.value || null)}
-            className="w-full text-xs"
-            style={{ background: 'rgba(0, 15, 40, 0.55)', color: 'var(--text)', borderColor: 'var(--border)' }}
+            className="w-full text-xs px-3 py-2.5 rounded-lg border"
+            style={{ background: '#ffffff', color: '#1e293b', borderColor: '#cbd5e1' }}
           >
-            <option value="">— Pilih TES —</option>
+            <option value="">🏁 — Pilih Titik Tujuan (TES) —</option>
             {tesList.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
@@ -138,60 +141,68 @@ export default function RouteAnalysisPanel({
         </div>
       </div>
 
-      <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
+      {/* Transport Mode */}
+      <div>
         <TransportModeSelector
           selectedMode={transportMode}
           onModeChange={onTransportModeChange}
         />
       </div>
 
-      <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border2)' }}>
+      {/* Safety Weight Slider - Hidden (Coming Soon)
+      <div>
         <SafetyWeightSlider
           value={safetyWeight}
           onChange={onSafetyWeightChange}
         />
       </div>
+      */}
 
-      <div className="mb-4 pb-4">
-        <button
-          type="button"
-          onClick={handleAnalyzeRoutes}
-          disabled={isLoading}
-          className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: 'linear-gradient(135deg, #064e3b, #059669)',
-            boxShadow: '0 4px 18px rgba(5, 150, 105, 0.3)',
-            letterSpacing: '1px',
-          }}
-        >
-          🛣 ANALISIS RUTE EVAKUASI
-        </button>
-      </div>
+      {/* Tombol Analisis */}
+      <button
+        type="button"
+        onClick={handleAnalyzeRoutes}
+        disabled={isLoading}
+        className="w-full py-3.5 rounded-lg font-bold uppercase text-sm text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          background: isLoading
+            ? 'rgba(5, 150, 105, 0.5)'
+            : 'linear-gradient(135deg, #064e3b, #059669)',
+          boxShadow: '0 4px 20px rgba(5, 150, 105, 0.3)',
+          letterSpacing: '1px',
+        }}
+      >
+        {isLoading ? '⏳ MENGANALISIS...' : '🛣 ANALISIS RUTE EVAKUASI'}
+      </button>
 
-      <div className="pb-4">
-        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-          Titik Evakuasi Sementara (TES)
-          <span className="float-right font-bold" style={{ color: 'var(--ok)' }}>2.450</span>
-        </div>
-        <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-          {tesList.map((t) => (
-            <div
-              key={t.id}
-              className="p-2 rounded-md border text-xs cursor-pointer transition-all"
-              style={{
-                background: 'rgba(0, 15, 40, 0.4)',
-                borderColor: 'rgba(56, 189, 248, 0.08)',
-                color: 'var(--text)',
-              }}
-            >
-              <div className="font-semibold">{t.name}</div>
-              <div style={{ color: 'var(--muted)', marginTop: '2px' }}>
-                Kapasitas: {t.kapasitas} orang
+      {/* Daftar TES - hanya tampilkan jika ada data */}
+      {tesList.length > 0 && (
+        <div className="pt-2 border-t" style={{ borderColor: '#e2e8f0' }}>
+          <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#475569' }}>
+            Titik Evakuasi Sementara
+            <span className="float-right font-normal" style={{ color: '#3b82f6' }}>{tesList.length} lokasi</span>
+          </div>
+          <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1">
+            {tesList.map((t) => (
+              <div
+                key={t.id}
+                className="p-2.5 rounded-lg border text-xs cursor-pointer transition-all hover:bg-opacity-80"
+                style={{
+                  background: selectedTesId === t.id ? '#dbeafe' : '#f8fafc',
+                  borderColor: selectedTesId === t.id ? '#3b82f6' : '#e2e8f0',
+                  color: '#1e293b',
+                }}
+                onClick={() => setSelectedTesId(t.id)}
+              >
+                <div className="font-semibold" style={{ color: selectedTesId === t.id ? '#1d4ed8' : '#3b82f6' }}>{t.name}</div>
+                <div style={{ color: '#64748b', marginTop: '2px' }}>
+                  Kapasitas: {t.kapasitas} orang
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

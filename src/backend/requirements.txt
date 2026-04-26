@@ -1,12 +1,38 @@
+# ============================================================================
+# TsunamiSim Backend - Python Dependencies
+# ============================================================================
+
+# ── Web Framework ─────────────────────────────────────────────────────────
 fastapi==0.110.0
-uvicorn==0.27.1
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.0
+
+# ── Geospatial Libraries ─────────────────────────────────────────────────────
 geopandas==0.14.3
-pandas==2.2.1
+shapely==2.0.3
+rasterio>=1.3.0
+osmnx>=1.9.0
+
+# ── Graph & Network ─────────────────────────────────────────────────────────
+networkx==3.2.1
+
+# ── Scientific Computing ────────────────────────────────────────────────────
 numpy==1.26.4
 scipy==1.12.0
-networkx==3.2.1
-shapely==2.0.3
-python-multipart==0.0.9
-rasterio>=1.3.0
 numba>=0.57.0
-cupy-cuda12x
+
+# ── Data Processing ────────────────────────────────────────────────────────
+pandas==2.2.1
+
+# ── GPU Acceleration (Optional - untuk CUDA) ───────────────────────────────
+# cupy-cuda12x  # Uncomment jika menggunakan CUDA 12.x
+# cupy-cuda11x  # Uncomment jika menggunakan CUDA 11.x
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# - Install semua: pip install -r requirements.txt
+# - Untuk GPU support: install cupy versi yang sesuai dengan CUDA driver
+# - scipy digunakan untuk: KDTree spatial indexing, distance transform
+# - rasterio digunakan untuk: DEM/GeoTIFF reading
+# - geopandas digunakan untuk: Shapefile I/O, spatial operations
+# - osmnx digunakan untuk: OSM street network (fallback jika shapefile tidak ada)

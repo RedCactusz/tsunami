@@ -1,13 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { ABMParams } from '@/types';
-
-interface ABMPanelProps {
-  transportMode: 'foot' | 'motor' | 'car';
-  onRunABM?: (params: ABMParams) => Promise<void>;
-  isLoading?: boolean;
-}
 
 interface ABMPanelProps {
   transportMode: 'foot' | 'motor' | 'car';
@@ -22,9 +16,10 @@ export default function ABMPanel({
   isLoading = false,
   hasSimulated = false,
 }: ABMPanelProps) {
-  const [warningTime, setWarningTime] = useState(20);
-  const [duration, setDuration] = useState(120);
-  const [floodHeight, setFloodHeight] = useState(5);
+  // Default parameters (backend uses constants)
+  const warningTime = 20;  // Default: 20 minutes
+  const duration = 120;     // Default: 120 minutes (2 hours)
+  const floodHeight = 5;    // Default: 5 meters
 
   const handleRunABM = async () => {
     if (!onRunABM) return;
@@ -42,7 +37,7 @@ export default function ABMPanel({
   return (
     <>
       {/* Integration Status Banner */}
-      <div className="mb-3 p-2 rounded-md border text-xs"
+      <div className="mb-3 p-3 rounded-lg border text-xs"
         style={{
           background: hasSimulated
             ? 'rgba(34, 197, 94, 0.12)'
@@ -63,7 +58,7 @@ export default function ABMPanel({
                 ? 'Integrasi SWE Aktif'
                 : 'Jalankan Simulasi SWE Dulu'}
             </div>
-            <div style={{ color: 'var(--muted)', marginTop: '2px' }}>
+            <div style={{ color: '#64748b', marginTop: '2px' }}>
               {hasSimulated
                 ? 'ABM akan menggunakan data tsunami untuk hazard-aware routing'
                 : 'ABM akan berjalan tanpa data tsunami (simplified mode)'}
@@ -72,10 +67,11 @@ export default function ABMPanel({
         </div>
       </div>
 
-      <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--muted)' }}>
+      <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
         Parameter ABM Evakuasi
       </div>
 
+      {/* Parameter inputs - Hidden (Backend uses constants)
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div>
           <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>⏰ Waktu Peringatan (mnt)</div>
@@ -123,22 +119,44 @@ export default function ABMPanel({
           </span>
         </div>
       </div>
+      */}
+
+      {/* Info panel - Parameter values */}
+      <div className="mb-4 p-3 rounded-lg border text-xs space-y-2" style={{
+        background: '#f3e8ff',
+        borderColor: '#d8b4fe',
+        color: '#581c87',
+      }}>
+        <div className="font-semibold mb-2" style={{ color: '#7c3aed' }}>📊 Parameter Simulasi (Default)</div>
+        <div className="flex justify-between">
+          <span style={{ color: '#6b21a8' }}>⏰ Waktu Peringatan:</span>
+          <span className="font-bold" style={{ color: '#581c87' }}>{warningTime} menit</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#6b21a8' }}>⏱ Durasi Simulasi:</span>
+          <span className="font-bold" style={{ color: '#581c87' }}>{duration} menit</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#6b21a8' }}>🌊 Tinggi Banjir:</span>
+          <span className="font-bold" style={{ color: '#581c87' }}>{floodHeight} meter</span>
+        </div>
+      </div>
 
       <button
         type="button"
         onClick={handleRunABM}
         disabled={isLoading}
-        className="w-full py-2 rounded-lg font-bold text-xs uppercase text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3.5 rounded-lg font-bold uppercase text-sm text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
-          background: 'linear-gradient(135deg, #1a0050, #7c3aed)',
-          boxShadow: '0 4px 18px rgba(124, 58, 237, 0.3)',
+          background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
+          boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)',
           letterSpacing: '1px',
         }}
       >
         🤖 JALANKAN SIMULASI ABM
       </button>
 
-      <div className="mt-4 text-xs text-center" style={{ color: 'var(--muted)' }}>
+      <div className="mt-3 text-xs text-center" style={{ color: '#94a3b8' }}>
         Simulasi ABM belum dijalankan
       </div>
     </>

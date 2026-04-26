@@ -3,34 +3,15 @@
 //  Semua tipe data yang dipakai frontend ↔ backend
 // ═══════════════════════════════════════════════
 
-// ── GeoJSON Types ─────────────────────────────────────────────────
-declare global {
-  namespace GeoJSON {
-    type Geometry = {
-      type: 'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon';
-      coordinates: any;
-    };
-
-    type FeatureCollection<G extends Geometry = Geometry, P = any> = {
-      type: 'FeatureCollection';
-      features: Feature<G, P>[];
-    };
-
-    type Feature<G extends Geometry = Geometry, P = any> = {
-      type: 'Feature';
-      geometry: G;
-      properties: P;
-    };
-  }
-}
-
 // ── Parameter Simulasi (dikirim ke backend) ──────────────────────
 export interface SimulationParams {
   magnitude: number;        // Mw (5.0 – 9.5)
-  fault_type: 'vertical' | 'horizontal';
+  fault_type: 'vertical' | 'horizontal' | 'thrust';
   fault_id: string | null;  // ID sesar yang dipilih
   source_mode: 'fault' | 'mega' | 'custom';
-  depth_km?: number;        // opsional, kedalaman hiposenter
+  depth?: number;           // opsional, kedalaman hiposenter (km)
+  length?: number;          // opsional, panjang sesar (km)
+  rake?: number;            // opsional, rake angle (derajat)
   lat?: number;             // untuk custom mode
   lon?: number;
 }

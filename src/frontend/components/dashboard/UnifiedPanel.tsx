@@ -5,7 +5,7 @@ import type { SimulationParams, RoutingParams, ABMParams, SWEResult, RoutingResu
 import SourceSelector from '@/components/dashboard/controls/SourceSelector';
 import SimulationParameters from '@/components/dashboard/controls/SimulationParameters';
 import FaultSelector from '@/components/dashboard/controls/FaultSelector';
-import DetailedParameterControls from '@/components/dashboard/controls/DetailedParameterControls';
+// import DetailedParameterControls from '@/components/dashboard/controls/DetailedParameterControls'; // Hidden - Coming Soon
 import { SimulationProgress } from '@/components/ui/ProgressBar';
 import RouteAnalysisPanel from '@/components/dashboard/controls/RouteAnalysisPanel';
 import ABMPanel from '@/components/dashboard/controls/ABMPanel';
@@ -21,6 +21,16 @@ interface UnifiedPanelProps {
   routingResult?: RoutingResult | null;
   abmResult?: ABMResult | null;
   tesList?: TESData[];
+  faultData?: Record<string, {
+    label: string;
+    mw: number;
+    category: string;
+    recurrence: string;
+    view_lat: number;
+    view_lon: number;
+    view_zoom: number;
+  }>;
+  onFaultSelect?: (faultId: string | null) => void;
   hasSimulated?: boolean;
   customEpicenter?: { lat: number; lon: number } | null;
   isPickingEpicenter?: boolean;
@@ -43,6 +53,8 @@ export default function UnifiedPanel({
   routingResult,
   abmResult,
   tesList = [],
+  faultData,
+  onFaultSelect,
   hasSimulated = false,
   customEpicenter,
   isPickingEpicenter = false,
@@ -56,7 +68,7 @@ export default function UnifiedPanel({
   const [activeTab, setActiveTab] = useState<TabType>('simulation');
   const [routingActiveTab, setRoutingActiveTab] = useState<'network' | 'abm'>('network');
   const [transportMode, setTransportMode] = useState<'foot' | 'motor' | 'car'>('foot');
-  const [safetyWeight, setSafetyWeight] = useState(25);
+  const [safetyWeight, setSafetyWeight] = useState(25); // Default value (slider hidden)
 
   // Sidebar states
   const [magnitude, setMagnitude] = useState(7.5);
@@ -65,10 +77,13 @@ export default function UnifiedPanel({
   const [sourceMode, setSourceMode] = useState<'fault' | 'mega' | 'custom'>('fault');
   const magnitudePresets = [6, 6.5, 7, 7.5, 8, 8.5, 9];
 
-  // Detailed parameters
-  const [depth, setDepth] = useState(15);
-  const [length, setLength] = useState(100);
-  const [rake, setRake] = useState(0);
+  // Detailed parameters (hidden - coming soon)
+  // const [depth, setDepth] = useState(15);
+  // const [length, setLength] = useState(100);
+  // const [rake, setRake] = useState(0);
+  const depth = 15;  // Default value for simulation
+  const length = 100;  // Default value for simulation
+  const rake = 0;  // Default value for simulation
 
   // Simulation progress
   const [simulationStep, setSimulationStep] = useState(0);
@@ -92,7 +107,9 @@ export default function UnifiedPanel({
       fault_type: faultType as 'vertical' | 'horizontal',
       fault_id: sourceMode === 'custom' ? null : selectedFault,
       source_mode: sourceMode,
-      depth_km: depth,
+      depth: depth,
+      length: length,
+      rake: rake,
       ...(sourceMode === 'custom' && customEpicenter
         ? {
             lat: customEpicenter.lat,
@@ -115,38 +132,37 @@ export default function UnifiedPanel({
   };
 
   return (
-    <aside className="w-72 flex-shrink-0 flex flex-col border-r overflow-y-auto h-screen"
+    <aside className="w-72 flex-shrink-0 flex flex-col border-r overflow-y-auto h-screen bg-white"
       style={{
-        background: 'var(--panel)',
-        borderColor: 'var(--border)',
+        borderColor: '#e2e8f0',
       }}
     >
       {/* Tab Navigation */}
-      <div className="p-3 flex-shrink-0 border-b flex items-center justify-between"
+      <div className="p-4 flex-shrink-0 border-b"
         style={{
-          background: 'rgba(6, 13, 27, 0.8)',
-          borderColor: 'var(--border)',
+          background: '#f8fafc',
+          borderColor: '#e2e8f0',
         }}
       >
         <div className="flex gap-2 w-full">
           <button
             onClick={() => setActiveTab('simulation')}
-            className="flex-1 text-xs px-3 py-2 rounded font-semibold border transition-all"
+            className="flex-1 text-sm px-4 py-2.5 rounded-lg font-medium transition-all"
             style={{
-              background: activeTab === 'simulation' ? 'rgba(56, 189, 248, 0.18)' : 'rgba(0, 18, 45, 0.6)',
-              borderColor: activeTab === 'simulation' ? 'var(--accent)' : 'var(--border)',
-              color: activeTab === 'simulation' ? 'var(--accent)' : 'var(--muted)',
+              background: activeTab === 'simulation' ? '#3b82f6' : '#ffffff',
+              color: activeTab === 'simulation' ? '#ffffff' : '#475569',
+              border: activeTab === 'simulation' ? '1px solid #3b82f6' : '1px solid #e2e8f0',
             }}
           >
             🌊 Simulasi
           </button>
           <button
             onClick={() => setActiveTab('routing')}
-            className="flex-1 text-xs px-3 py-2 rounded font-semibold border transition-all"
+            className="flex-1 text-sm px-4 py-2.5 rounded-lg font-medium transition-all"
             style={{
-              background: activeTab === 'routing' ? 'rgba(56, 189, 248, 0.18)' : 'rgba(0, 18, 45, 0.6)',
-              borderColor: activeTab === 'routing' ? 'var(--accent)' : 'var(--border)',
-              color: activeTab === 'routing' ? 'var(--accent)' : 'var(--muted)',
+              background: activeTab === 'routing' ? '#3b82f6' : '#ffffff',
+              color: activeTab === 'routing' ? '#ffffff' : '#475569',
+              border: activeTab === 'routing' ? '1px solid #3b82f6' : '1px solid #e2e8f0',
             }}
           >
             🚩 Evakuasi
@@ -155,15 +171,15 @@ export default function UnifiedPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
         {/* SIMULATION TAB */}
         {activeTab === 'simulation' && (
           <div className="space-y-4">
-            <div className="pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent)' }}>
+            <div className="pb-4 border-b" style={{ borderColor: '#e2e8f0' }}>
+              <div className="text-sm font-semibold mb-1" style={{ color: '#1e293b' }}>
                 Pemodelan Tsunami
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="text-xs" style={{ color: '#64748b' }}>
                 Simulasi Gelombang & Dampak
               </div>
             </div>
@@ -172,12 +188,39 @@ export default function UnifiedPanel({
               sourceMode={sourceMode}
               onSourceModeChange={setSourceMode}
               selectedFault={selectedFault}
-              onSelectFault={setSelectedFault}
+              onSelectFault={(faultId) => {
+                setSelectedFault(faultId);
+                onFaultSelect?.(faultId);
+              }}
               customEpicenter={customEpicenter || null}
               isPickingEpicenter={isPickingEpicenter}
               onPickEpicenterToggle={onPickEpicenterToggle || (() => {})}
               onResetEpicenter={onResetEpicenter || (() => {})}
             />
+
+            {/* Patahan: Tampilkan FaultSelector untuk sesar aktif */}
+            {sourceMode === 'fault' && (
+              <FaultSelector
+                selectedFault={selectedFault}
+                onSelectFault={(faultId) => {
+                  setSelectedFault(faultId);
+                  onFaultSelect?.(faultId);
+                }}
+                category="fault"
+              />
+            )}
+
+            {/* Megathrust: Tampilkan FaultSelector untuk megathrust */}
+            {sourceMode === 'mega' && (
+              <FaultSelector
+                selectedFault={selectedFault}
+                onSelectFault={(faultId) => {
+                  setSelectedFault(faultId);
+                  onFaultSelect?.(faultId);
+                }}
+                category="megathrust"
+              />
+            )}
 
             <SimulationParameters
               magnitude={magnitude}
@@ -191,13 +234,8 @@ export default function UnifiedPanel({
               onRunSimulation={handleRunSimulation}
             />
 
-            {sourceMode !== 'custom' && (
-              <FaultSelector
-                selectedFault={selectedFault}
-                onSelectFault={setSelectedFault}
-              />
-            )}
-
+            {/* Parameter Detail - COMING SOON (Hidden for now) */}
+            {/*
             <DetailedParameterControls
               magnitude={magnitude}
               onMagnitudeChange={setMagnitude}
@@ -210,16 +248,17 @@ export default function UnifiedPanel({
               onLengthChange={setLength}
               onRakeChange={setRake}
             />
+            */}
 
             {sweResult && (
-              <div className="p-3 rounded-lg border" style={{
-                background: 'rgba(52, 211, 153, 0.08)',
-                borderColor: 'rgba(52, 211, 153, 0.18)',
+              <div className="p-4 rounded-lg border" style={{
+                background: '#f0fdf4',
+                borderColor: '#86efac',
               }}>
-                <div className="text-xs font-semibold mb-2" style={{ color: '#44ff88' }}>
+                <div className="text-xs font-semibold mb-3" style={{ color: '#166534' }}>
                   ✓ Hasil Simulasi Tersedia
                 </div>
-                <div className="text-xs space-y-1" style={{ color: 'var(--muted)' }}>
+                <div className="text-xs space-y-2" style={{ color: '#475569' }}>
                   <p>Max Wave: {sweResult.max_inundation_m?.toFixed(2) || 'N/A'} m</p>
                   <p>Area: {sweResult.affected_area_km2?.toFixed(2) || 'N/A'} km²</p>
                 </div>
@@ -240,11 +279,11 @@ export default function UnifiedPanel({
         {/* ROUTING TAB */}
         {activeTab === 'routing' && (
           <div className="space-y-4">
-            <div className="pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#44ff88' }}>
+            <div className="pb-4 border-b" style={{ borderColor: '#e2e8f0' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#1e293b' }}>
                 Rute Evakuasi
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="text-xs" style={{ color: '#64748b' }}>
                 Analisis Jaringan · DEM + Lereng
               </div>
             </div>
@@ -256,11 +295,11 @@ export default function UnifiedPanel({
                   key={tab}
                   type="button"
                   onClick={() => setRoutingActiveTab(tab)}
-                  className="flex-1 text-xs px-2 py-1 rounded font-semibold border transition-all"
+                  className="flex-1 text-xs px-3 py-2 rounded-lg font-semibold border transition-all"
                   style={{
-                    background: routingActiveTab === tab ? 'rgba(56, 189, 248, 0.18)' : 'rgba(0, 18, 45, 0.6)',
-                    borderColor: routingActiveTab === tab ? 'var(--accent)' : 'var(--border)',
-                    color: routingActiveTab === tab ? 'var(--accent)' : 'var(--muted)',
+                    background: routingActiveTab === tab ? '#3b82f6' : '#f1f5f9',
+                    borderColor: routingActiveTab === tab ? '#3b82f6' : '#cbd5e1',
+                    color: routingActiveTab === tab ? '#ffffff' : '#1e293b',
                   }}
                 >
                   {tab === 'network' ? '🛣 Rute' : '🤖 ABM'}
@@ -269,29 +308,19 @@ export default function UnifiedPanel({
             </div>
 
             {routingActiveTab === 'network' && (
-              <div className="space-y-3">
-                <TransportModeSelector
-                  selectedMode={transportMode}
-                  onModeChange={setTransportMode}
-                />
-                <SafetyWeightSlider
-                  value={safetyWeight}
-                  onChange={setSafetyWeight}
-                />
-                <RouteAnalysisPanel
-                  transportMode={transportMode}
-                  onTransportModeChange={setTransportMode}
-                  safetyWeight={safetyWeight}
-                  onSafetyWeightChange={setSafetyWeight}
-                  onAnalyzeRoutes={onAnalyzeRoutes}
-                  isLoading={isLoading}
-                  tesList={tesList}
-                  customOrigin={customOrigin || null}
-                  isPickingOrigin={isPickingOrigin}
-                  onPickOriginToggle={onPickOriginToggle || (() => {})}
-                  onResetOrigin={onResetOrigin || (() => {})}
-                />
-              </div>
+              <RouteAnalysisPanel
+                transportMode={transportMode}
+                onTransportModeChange={setTransportMode}
+                safetyWeight={safetyWeight}
+                onSafetyWeightChange={setSafetyWeight}
+                onAnalyzeRoutes={onAnalyzeRoutes}
+                isLoading={isLoading}
+                tesList={tesList}
+                customOrigin={customOrigin || null}
+                isPickingOrigin={isPickingOrigin}
+                onPickOriginToggle={onPickOriginToggle || (() => {})}
+                onResetOrigin={onResetOrigin || (() => {})}
+              />
             )}
 
             {routingActiveTab === 'abm' && (

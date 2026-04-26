@@ -2,9 +2,12 @@
 
 import type { ABMResult, DesaData, RoutingResult, SWEResult, TESData } from '@/types';
 import { useEffect, useRef, useState } from 'react';
+import { useABMAnimation } from '@/hooks/useABMAnimation';
 import ExportPanel from './ExportPanel';
 import LayerControl from './LayerControl';
 import ServerStatus from './ServerStatus';
+import ABMAgentsLayer from './ABMAgentsLayer';
+import ABMAnimationControls from '../ui/ABMAnimationControls';
 
 let L: any;
 const isBrowser = typeof window !== 'undefined';
@@ -32,6 +35,16 @@ interface MapProps {
   customOrigin?: { lat: number; lon: number } | null;
   isPickingOrigin?: boolean;
   onOriginSelect?: (coords: { lat: number; lon: number }) => void;
+  selectedFault?: string | null;  // ID of selected fault/megathrust
+  faultData?: Record<string, {  // Fault metadata with view coordinates
+    label: string;
+    mw: number;
+    category: string;
+    recurrence: string;
+    view_lat: number;
+    view_lon: number;
+    view_zoom: number;
+  }>;
 }
 
 const defaultCenter: [number, number] = [-7.95, 110.35];
@@ -52,11 +65,13 @@ export default function MapComponent({
   customOrigin,
   isPickingOrigin = false,
   onOriginSelect,
+  selectedFault,
+  faultData,
 }: MapProps) {
   const [panelOpen, setPanelOpen] = useState(false);
-  const [activeBasemap, setActiveBasemap] = useState<'osm' | 'satellite' | 'terrain'>('osm');
+  const [activeBasemap, setActiveBasemap] = useState<'osm' | 'satellite' | 'terrain'>('satellite');
   const [layerVisibility, setLayerVisibility] = useState({
-    desa: true,
+    desa: false,  // Hidden by default - can be toggled via layer control
     tes: true,
     roads: true,
     coastline: true,
@@ -66,6 +81,7 @@ export default function MapComponent({
     routes: true,
     abm_agents: true,
     network_roads: false,
+    pemukiman: false,  // Hidden by default - settlements layer
   });
 
   const handleLayerToggle = (layerId: string, isVisible: boolean) => {
@@ -112,8 +128,34 @@ export default function MapComponent({
   const originMarkerRef = useRef<any>(null);
   const tesGroupRef = useRef<any>(null);
   const desaGroupRef = useRef<any>(null);
+  const pemukimanGroupRef = useRef<any>(null);
   const routesGroupRef = useRef<any>(null);
   const inundationGroupRef = useRef<any>(null);
+  const faultHighlightRef = useRef<any>(null);  // For fault selection highlight
+
+  // ABM Animation state
+  const [showABMControls, setShowABMControls] = useState(false);
+
+  // Initialize ABM animation hook
+  const abmAnimation = useABMAnimation({
+    frames: abmResult?.frames || [],
+    autoPlay: false,
+    initialSpeed: 2,
+    onFrameChange: (frame, index) => {
+      console.log(`[Map] ABM frame ${index}: ${frame.agents.length} agents at ${frame.time_min.toFixed(1)} min`);
+    },
+    onAnimationComplete: () => {
+      console.log('[Map] ABM animation complete');
+      setShowABMControls(true);
+    },
+  });
+
+  // Show ABM controls when result is available
+  useEffect(() => {
+    if (abmResult && abmResult.frames && abmResult.frames.length > 0) {
+      setShowABMControls(true);
+    }
+  }, [abmResult]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !isBrowser || mapRef.current || !L) return;
@@ -141,8 +183,8 @@ export default function MapComponent({
       zoomControl: false,
     });
 
-    basemapLayers.osm.addTo(map);
-    currentBasemapRef.current = basemapLayers.osm;
+    basemapLayers.satellite.addTo(map);
+    currentBasemapRef.current = basemapLayers.satellite;
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     mapRef.current = map;
@@ -155,7 +197,9 @@ export default function MapComponent({
       originMarkerRef.current = null;
       tesGroupRef.current = null;
       desaGroupRef.current = null;
+      pemukimanGroupRef.current = null;
       inundationGroupRef.current = null;
+      faultHighlightRef.current = null;
     };
   }, []);
 
@@ -239,6 +283,72 @@ export default function MapComponent({
       originMarkerRef.current = null;
     }
   }, [customEpicenter, customOrigin, onEpicenterSelect, onOriginSelect]);
+
+  // 🎯 ZOOM & HIGHLIGHT FAULT: Zoom to selected fault with blinking highlight
+  useEffect(() => {
+    if (!mapRef.current || !L) return;
+    const map = mapRef.current;
+
+    // Remove existing highlight
+    if (faultHighlightRef.current) {
+      map.removeLayer(faultHighlightRef.current);
+      faultHighlightRef.current = null;
+    }
+
+    // Only proceed if we have a selected fault and fault data
+    if (!selectedFault || !faultData || !faultData[selectedFault]) return;
+
+    const fault = faultData[selectedFault];
+    const { view_lat, view_lon, view_zoom } = fault;
+
+    // Zoom to fault location
+    map.setView([view_lat, view_lon], view_zoom, {
+      animate: true,
+      duration: 1.5
+    });
+
+    // Create blinking highlight marker
+    const highlightIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width: 40px;
+        height: 40px;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.8), rgba(56, 189, 248, 0));
+        border-radius: 50%;
+        animation: pulse 1s ease-in-out infinite;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+      "></div>
+      <style>
+        @keyframes pulse {
+          0%, 100% { transform: scale(0.8); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.6; }
+        }
+      </style>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    });
+
+    const marker = L.marker([view_lat, view_lon], { icon: highlightIcon, zIndexOffset: 1000 }).addTo(map);
+    faultHighlightRef.current = marker;
+
+    // Remove highlight after 3 seconds
+    const timeout = setTimeout(() => {
+      if (faultHighlightRef.current) {
+        map.removeLayer(faultHighlightRef.current);
+        faultHighlightRef.current = null;
+      }
+    }, 3000);
+
+    console.log(`[Map] Zoomed to fault ${selectedFault} at [${view_lat}, ${view_lon}] zoom ${view_zoom}`);
+
+    return () => {
+      clearTimeout(timeout);
+      if (faultHighlightRef.current) {
+        map.removeLayer(faultHighlightRef.current);
+        faultHighlightRef.current = null;
+      }
+    };
+  }, [selectedFault, faultData]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -326,6 +436,77 @@ export default function MapComponent({
       });
     }
   }, [desaList, layerVisibility.desa]);
+
+  // 🏘 PEMUKIMAN SETTLEMENTS: Load Pemukiman.geojson
+  useEffect(() => {
+    if (!mapRef.current || !L) return;
+    const map = mapRef.current;
+
+    if (!pemukimanGroupRef.current) {
+      pemukimanGroupRef.current = L.layerGroup().addTo(map);
+    }
+
+    pemukimanGroupRef.current.clearLayers();
+
+    // Only load if layer visibility is true
+    if (layerVisibility.pemukiman) {
+      fetch('/data/Pemukiman.geojson')
+        .then(res => res.json())
+        .then(geojson => {
+          if (!geojson?.features) return;
+
+          geojson.features.forEach((feature: any) => {
+            if (feature.geometry?.type !== 'Polygon' && feature.geometry?.type !== 'MultiPolygon') return;
+
+            const geoJSONLayer = L.geoJSON(feature, {
+              style: {
+                color: '#f97316',
+                fillColor: '#f97316',
+                fillOpacity: 0.15,
+                weight: 1.5,
+              }
+            });
+
+            geoJSONLayer.bindTooltip(`
+              <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px;">
+                <b style="color: #f97316;">Pemukiman</b>
+              </div>
+            `, {
+              sticky: true,
+              direction: 'top',
+            });
+
+            pemukimanGroupRef.current.addLayer(geoJSONLayer);
+          });
+
+          console.log(`[Map] Loaded ${geojson.features.length} pemukiman settlements`);
+        })
+        .catch(err => {
+          console.error('[Map] Failed to load Pemukiman.geojson:', err);
+        });
+    }
+  }, [layerVisibility.pemukiman]);
+
+  // 🎯 ZOOM TO TES BOUNDS: Fit map to TES locations on first load
+  useEffect(() => {
+    if (!mapRef.current || !L) return;
+    const map = mapRef.current;
+
+    // Only zoom if we have TES data and haven't zoomed yet
+    if (tesList.length > 0 && !tesGroupRef.current?.hasZoomed) {
+      const bounds = L.latLngBounds(tesList.map(tes => [tes.lat, tes.lon]));
+
+      // Add small padding
+      map.fitBounds(bounds.pad(0.1));
+
+      // Mark as zoomed to prevent repeated zooming
+      if (tesGroupRef.current) {
+        (tesGroupRef.current as any).hasZoomed = true;
+      }
+
+      console.log('[Map] Zoomed to TES bounds:', bounds);
+    }
+  }, [tesList.length]); // Only trigger when tesList length changes
 
   // 🚨 ROUTING VISUALIZATION: Draw evacuation routes as polylines
   useEffect(() => {
@@ -487,6 +668,43 @@ export default function MapComponent({
 
       {/* Export Panel */}
       <ExportPanel onExport={handleExport} />
+
+      {/* ABM Agents Layer */}
+      {mapRef.current && abmResult && abmResult.frames && abmResult.frames.length > 0 && (
+        <ABMAgentsLayer
+          map={mapRef.current}
+          frame={abmAnimation.currentFrame}
+          visible={layerVisibility.abm_agents}
+          onAgentClick={(agentId, agent) => {
+            console.log('[Map] Agent clicked:', agentId, agent);
+          }}
+        />
+      )}
+
+      {/* ABM Animation Controls */}
+      {showABMControls && abmResult && abmResult.frames && abmResult.frames.length > 0 && (
+        <div className="absolute bottom-24 left-4 z-[1000] w-80">
+          <ABMAnimationControls
+            isPlaying={abmAnimation.isPlaying}
+            currentFrame={abmAnimation.currentFrameIndex}
+            totalFrames={abmAnimation.totalFrames}
+            currentTime={abmAnimation.currentTime}
+            progress={abmAnimation.progress}
+            speed={abmAnimation.speed}
+            canPlay={abmAnimation.canPlay}
+            canPause={abmAnimation.canPause}
+            canNext={abmAnimation.canNext}
+            canPrevious={abmAnimation.canPrevious}
+            onPlay={abmAnimation.play}
+            onPause={abmAnimation.pause}
+            onStop={abmAnimation.stop}
+            onNext={abmAnimation.nextFrame}
+            onPrevious={abmAnimation.previousFrame}
+            onSeek={abmAnimation.seekToFrame}
+            onSpeedChange={abmAnimation.setSpeed}
+          />
+        </div>
+      )}
     </div>
   );
 }

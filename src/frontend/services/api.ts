@@ -5,25 +5,30 @@
  */
 
 import type {
-  SimulationParams,
-  RoutingParams,
   ABMParams,
-  SWEResult,
-  ImpactResult,
-  RoutingResult,
   ABMResult,
   DesaData,
-  TESData,
+  ImpactResult,
+  RoutingParams,
+  RoutingResult,
   ServerStatus,
-} from '@/types';
+  SimulationParams,
+  SWEResult,
+  TESData,
+} from "@/types";
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000';
+const SERVER_URL =
+  process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000";
 
 // ════════════════════════════════════════════════
 //  HELPER: Fetch dengan timeout
 // ════════════════════════════════════════════════
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 30000): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout = 30000,
+): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -36,7 +41,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
     return response;
   } catch (err: unknown) {
     clearTimeout(timeoutId);
-    if (err instanceof Error && err.name === 'AbortError') {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw err;
@@ -86,7 +91,9 @@ export async function runSimulation(
   } catch (err) {
     console.error("[API] /simulate ERROR:", err);
     // ❌ NO MOCK DATA - Throw error untuk frontend handle
-    throw new Error(`Gagal menjalankan simulasi: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(
+      `Gagal menjalankan simulasi: ${err instanceof Error ? err.message : "Unknown error"}`,
+    );
   }
 }
 
@@ -111,7 +118,9 @@ export async function runRouting(
   } catch (err) {
     console.error("[API] /routing ERROR:", err);
     // ❌ NO MOCK DATA
-    throw new Error(`Gagal menghitung rute evakuasi: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(
+      `Gagal menghitung rute evakuasi: ${err instanceof Error ? err.message : "Unknown error"}`,
+    );
   }
 }
 
@@ -120,11 +129,18 @@ export async function runABM(
   params: ABMParams,
 ): Promise<ABMResult & { isMock: boolean }> {
   try {
-    const res = await fetchWithTimeout(`${SERVER_URL}/abm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    });
+    // ABM simulation timeout dengan graph routing
+    // Graph routing mode (Dijkstra): ~2-3 menit untuk 258 agents (129 routes)
+    // Timeout 180 detik (3 menit) untuk accommodate graph routing
+    const res = await fetchWithTimeout(
+      `${SERVER_URL}/abm`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      },
+      300000,
+    ); // 180 seconds (3 menit) timeout untuk graph routing
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -135,7 +151,9 @@ export async function runABM(
   } catch (err) {
     console.error("[API] /abm ERROR:", err);
     // ❌ NO MOCK DATA
-    throw new Error(`Gagal menjalankan simulasi ABM: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(
+      `Gagal menjalankan simulasi ABM: ${err instanceof Error ? err.message : "Unknown error"}`,
+    );
   }
 }
 
@@ -176,15 +194,18 @@ export async function fetchTES(): Promise<{ tes: TESData[]; isMock: boolean }> {
 
 // ── /admin/faults → Data Fault dari Shapefile ─────────────────────
 export async function getFaultList(): Promise<{
-  faults: Record<string, {
-    label: string;
-    mw: number;
-    category: string;
-    recurrence: string;
-    view_lat: number;
-    view_lon: number;
-    view_zoom: number;
-  }>;
+  faults: Record<
+    string,
+    {
+      label: string;
+      mw: number;
+      category: string;
+      recurrence: string;
+      view_lat: number;
+      view_lon: number;
+      view_zoom: number;
+    }
+  >;
   source: string;
   isMock: boolean;
 }> {
@@ -201,15 +222,15 @@ export async function getFaultList(): Promise<{
     return {
       faults: data.faults ?? {},
       source: data.source ?? "unknown",
-      isMock: false
+      isMock: false,
     };
   } catch (err) {
     console.error("[API] /admin/faults ERROR:", err);
     // ❌ NO MOCK DATA - Return empty object
     return {
       faults: {},
-      source: 'error',
-      isMock: false
+      source: "error",
+      isMock: false,
     };
   }
 }

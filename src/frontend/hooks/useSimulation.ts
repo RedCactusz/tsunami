@@ -11,6 +11,7 @@ import {
   checkServerStatus,
   fetchDesa,
   fetchTES,
+  getFaultList,
   runABM,
   runRouting,
   runSimulation,
@@ -46,6 +47,15 @@ export interface SimulationState {
   // Data admin (desa & TES)
   desaList: DesaData[];
   tesList: TESData[];
+  faultData: Record<string, {
+    label: string;
+    mw: number;
+    category: string;
+    recurrence: string;
+    view_lat: number;
+    view_lon: number;
+    view_zoom: number;
+  }>;
 
   // Flag apakah simulasi pernah dijalankan
   hasSimulated: boolean;
@@ -81,6 +91,8 @@ export function useSimulation(): SimulationState {
   // ── Data Admin ────────────────────────────────
   const [desaList, setDesaList] = useState<DesaData[]>([]);
   const [tesList, setTesList] = useState<TESData[]>([]);
+  const [faultData, setFaultData] = useState<Record<string, any>>({});
+  const [selectedFault, setSelectedFault] = useState<string | null>(null);
 
   // ── Flags ─────────────────────────────────────
   const [hasSimulated, setHasSimulated] = useState(false);
@@ -103,6 +115,18 @@ export function useSimulation(): SimulationState {
       setTesList(tesRes.tes);
     }
     loadAdminData();
+
+    // Load fault data
+    async function loadFaultData() {
+      try {
+        const result = await getFaultList();
+        setFaultData(result.faults);
+        console.log(`[useSimulation] Loaded ${Object.keys(result.faults).length} faults`);
+      } catch (err) {
+        console.error('[useSimulation] Failed to load faults:', err);
+      }
+    }
+    loadFaultData();
 
     // Cek server setiap 30 detik
     refreshServer();
@@ -208,6 +232,8 @@ export function useSimulation(): SimulationState {
     abmResult,
     desaList,
     tesList,
+    faultData,
+    selectedFault,
     hasSimulated,
     hasRouted,
     hasABM,

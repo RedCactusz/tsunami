@@ -323,10 +323,15 @@ class FaultLoader:
             if gdf.crs != "EPSG:4326":
                 gdf = gdf.to_crs(epsg=4326)
 
-            # Filter hanya LineString
-            gdf = gdf[gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
-
-            logger.info(f"[FaultLoader]   {len(gdf)} fault segments found")
+            # Filter geometri berdasarkan kategori
+            if category == 'megathrust':
+                # Megathrust menggunakan Polygon
+                gdf = gdf[gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+                logger.info(f"[FaultLoader]   {len(gdf)} megathrust zones found")
+            else:
+                # Fault biasa menggunakan LineString
+                gdf = gdf[gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
+                logger.info(f"[FaultLoader]   {len(gdf)} fault segments found")
 
             # Group segments by fault name
             fault_groups = self._group_by_fault_name(gdf)
@@ -414,7 +419,11 @@ class FaultLoader:
             else:
                 fault_id = base_id
 
-            # Extract segments
+            # Special handling for megathrust (Polygon geometri)
+            if category == 'megathrust':
+                return self._create_megathrust_info(fault_name, fault_id, segments_gdf, category, source_file)
+
+            # Extract segments untuk fault biasa (LineString)
             segments = []
             total_length = 0
             weighted_lat = 0
@@ -508,6 +517,131 @@ class FaultLoader:
 
         except Exception as e:
             logger.error(f"[FaultLoader] Error creating fault info for {fault_name}: {e}")
+            return None
+
+    def _create_megathrust_info(self, fault_name: str, fault_id: str,
+                                zones_gdf: gpd.GeoDataFrame,
+                                category: str, source_file: str) -> Optional[FaultInfo]:
+        """
+        Create FaultInfo untuk megathrust zones (Polygon geometri).
+
+        Args:
+            fault_name: Nama megathrust zone
+            fault_id: Generated fault ID
+            zones_gdf: GeoDataFrame berisi Polygon geometri
+            category: 'megathrust'
+            source_file: Path ke shapefile
+        """
+        try:
+            segments = []
+            total_area = 0
+            weighted_lat = 0
+            weighted_lon = 0
+            mmax_values = []
+            sliprate_values = []
+
+            for idx, row in zones_gdf.iterrows():
+                geom = row.geometry
+
+                # Handle MultiPolygon
+                if geom.geom_type == 'MultiPolygon':
+                    polys = list(geom.geoms)
+                else:
+                    polys = [geom]
+
+                for poly in polys:
+                    # Gunakan representative point (lebih akurat dari centroid untuk polygon tak beraturan)
+                    rep_point = poly.representative_point()
+                    rep_lat = rep_point.y
+                    rep_lon = rep_point.x
+
+                    # Calculate area in km2
+                    area_m2 = poly.area
+                    area_km2 = area_m2 / 1_000_000
+
+                    # Extract parameters (default values untuk megathrust)
+                    mmax = 9.0  # Megathrust biasanya M8.5-9.5
+                    sliprate = 50.0  # mm/year typical untuk megathrust
+                    fault_type = 'Thrust'
+
+                    # Extract dari row jika tersedia
+                    for col in zones_gdf.columns:
+                        if col.lower() in ['mmax', 'mw', 'magnitude']:
+                            try:
+                                val = float(row[col])
+                                if not np.isnan(val):
+                                    mmax = val
+                            except:
+                                pass
+                        elif col.lower() in ['sliprate', 'slip_rate', 'rate']:
+                            try:
+                                val = float(row[col])
+                                if not np.isnan(val):
+                                    sliprate = val
+                            except:
+                                pass
+
+                    # Create dummy LineString untuk segment (required oleh FaultSegment)
+                    # Gunakan titik representative + offset kecil untuk membuat garis
+                    from shapely.geometry import LineString
+                    dummy_line = LineString([
+                        (rep_lon, rep_lat),
+                        (rep_lon + 0.01, rep_lat + 0.01)
+                    ])
+
+                    segment = FaultSegment(
+                        id=f"{fault_id}_{len(segments)}",
+                        name=fault_name,
+                        type=fault_type,
+                        mmax_d=mmax,
+                        slip_rate=sliprate,
+                        geometry=dummy_line,
+                        length_km=100.0,  # Default length untuk megathrust
+                        centroid_lat=rep_lat,
+                        centroid_lon=rep_lon,
+                        source=os.path.basename(source_file)
+                    )
+                    segments.append(segment)
+
+                    total_area += area_km2
+                    weighted_lat += rep_lat * area_km2
+                    weighted_lon += rep_lon * area_km2
+                    mmax_values.append(mmax)
+                    sliprate_values.append(sliprate)
+
+            if not segments:
+                return None
+
+            # Calculate aggregate values
+            epicenter_lat = weighted_lat / total_area
+            epicenter_lon = weighted_lon / total_area
+            avg_mmax = max(mmax_values)
+            avg_sliprate = np.mean(sliprate_values)
+
+            # Megathrust parameters
+            fault_info = FaultInfo(
+                id=fault_id,
+                name=fault_name,
+                category=category,
+                type='thrust',
+                segments=segments,
+                mmax_d=avg_mmax,
+                slip_rate=avg_sliprate,
+                total_length_km=total_area,  # Use area sebagai "length"
+                epicenter_lat=epicenter_lat,
+                epicenter_lon=epicenter_lon,
+                strike=None,
+                dip=15.0,  # Typical low dip untuk megathrust
+                rake=90.0,  # Thrust fault
+                source_file=os.path.basename(source_file)
+            )
+
+            return fault_info
+
+        except Exception as e:
+            logger.error(f"[FaultLoader] Error creating megathrust info for {fault_name}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _extract_mmax(self, row) -> float:
