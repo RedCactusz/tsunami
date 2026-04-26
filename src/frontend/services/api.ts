@@ -4,10 +4,18 @@
  * ℹ️  Kalau backend error/offline → return error / empty data (bukan mock)
  */
 
-import { SimulationParams, RoutingParams, ABMParams } from '@/types/simulation';
-import { SWEResult, ImpactResult, RoutingResult, ABMResult } from '@/types/results';
-import { DesaData, TESData } from '@/types/data';
-import { ServerStatus } from '@/types/server';
+import type {
+  SimulationParams,
+  RoutingParams,
+  ABMParams,
+  SWEResult,
+  ImpactResult,
+  RoutingResult,
+  ABMResult,
+  DesaData,
+  TESData,
+  ServerStatus,
+} from '@/types';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000';
 
@@ -26,9 +34,9 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
     });
     clearTimeout(timeoutId);
     return response;
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw err;

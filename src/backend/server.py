@@ -388,13 +388,25 @@ async def get_admin_tes():
             geom = row.geometry
             if geom is None:
                 continue
-            centroid = geom.centroid
+            # TES is Point geometry, use coordinates directly
+            if geom.geom_type == 'Point':
+                lat = geom.y
+                lon = geom.x
+            else:
+                centroid = geom.centroid
+                lat = centroid.y
+                lon = centroid.x
+
             tes_list.append({
-                "id": row.get('FID', row.get('id', f'TES-{len(tes_list)+1}')),
-                "name": row.get('NAMOBJ', row.get('name', 'TES Unknown')),
-                "lat": centroid.y,
-                "lon": centroid.x,
-                "kapasitas": row.get('kapasitas', 500)  # Default if not available
+                "id": str(row.get('id', row.get('FID', f'TES-{len(tes_list)+1}'))),
+                "name": str(row.get('Nama', row.get('NAMOBJ', row.get('name', 'TES Unknown')))),
+                "lat": float(lat),
+                "lon": float(lon),
+                "kapasitas": int(row.get('kapasitas', 500)),
+                "jenis": str(row.get('jenis', 'Umum')),
+                "fasilitas": str(row.get('fasilitas', 'Toilet')),
+                "luas_m2": int(row.get('luas_m2', 200)),
+                "keterangan": str(row.get('keterangan', ''))
             })
 
         return {
@@ -769,16 +781,61 @@ async def post_simulate(params: SimulationParams):
         summary_counts[v["zona_bahaya"]] += v["terdampak"]
 
     # ════════════════════════════════════════════════════════════════════════════════
-    #  INUNDATION GEOJSON (NO MOCK DATA - ONLY USE REAL SWE RESULTS)
+    #  INUNDATION GEOJSON - Generate using InundationConnector
     # ════════════════════════════════════════════════════════════════════════════════
     inundation_geojson = None
 
-    # ❌ REMOVED: All mock data generation
-    # ℹ️  Inundation geojson will only be generated when real SWE simulation results are available
-    # ℹ️  Frontend should check if inundation_geojson is None and handle accordingly
-    # ℹ️  This prevents confusion from mock/dummy inundation data
-    logger.info("[SWE] Inundation GeoJSON: Not generated (real SWE solver not connected yet)")
-    logger.info("[SWE] ℹ️  To enable: Connect to real SWE solver simulation results")
+    try:
+        from simulation.swe.inundation_connector import InundationConnector
+        from simulation.swe.dem_manager import DEMManager
+
+        # Initialize DEM Manager
+        dem_bantul_path = os.path.join(Config.DEMNAS_DIR, "DEM_Bantul.tif")
+        if os.path.exists(dem_bantul_path):
+            dem_manager = DEMManager(dem_bantul_path)
+
+            # Initialize InundationConnector with study area villages
+            desa_shp_path = os.path.join(Config.VEKTOR_DIR, "Administrasi_Desa.shp")
+            study_area_ids = [3830, 3831, 3832, 3893, 3912, 3922, 3952, 3977, 3978, 3981]
+
+            connector = InundationConnector(
+                desa_shp_path=desa_shp_path,
+                dem_manager=dem_manager,
+                study_area_objectids=study_area_ids
+            )
+
+            # Calculate runup height based on magnitude
+            # Rumus runup sederhana: runup ≈ h_initial * attenuation
+            h_initial = wave_path[0]["wave_height_m"] if wave_path else 10.0
+            runup_height = h_initial * 0.8  # 80% dari initial wave height di pantai
+
+            logger.info(f"[SWE] Generating inundation with runup={runup_height:.2f}m")
+
+            # Load desa untuk admin mask
+            connector._load_desa()
+
+            # Generate inundation GeoJSON using _build_geojson directly
+            # Menggunakan per_desa kosong karena kita hanya butuh polygon inundasi
+            inundation_geojson = connector._build_geojson(
+                per_desa={},  # Kosongkan, kita hanya butuh flood polygon
+                flood_polygons=None,
+                runup_m=runup_height
+            )
+
+            if inundation_geojson and inundation_geojson.get('features'):
+                num_points = len(inundation_geojson['features'])
+                logger.info(f"[SWE] ✅ Generated inundation GeoJSON with {num_points} points")
+            else:
+                logger.warning("[SWE] Inundation GeoJSON generation returned empty features")
+                inundation_geojson = None
+        else:
+            logger.warning(f"[SWE] DEM_Bantul.tif not found at {dem_bantul_path}")
+
+    except Exception as e:
+        logger.error(f"[SWE] Error generating inundation: {e}")
+        import traceback
+        traceback.print_exc()
+        inundation_geojson = None
 
     swe_result = {
         "wave_path": wave_path,
