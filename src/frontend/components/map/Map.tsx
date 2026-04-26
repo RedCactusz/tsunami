@@ -413,6 +413,7 @@ export default function MapComponent({
           weight: 1.5,
           opacity: 0.9,
           fillOpacity: 0.7,
+          stroke: false,
         });
 
         // Tooltip with flood information

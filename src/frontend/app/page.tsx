@@ -4,8 +4,7 @@ import 'leaflet/dist/leaflet.css';
 
 import React, { useState } from 'react';
 import BottomBar from '@/components/dashboard/BottomBar';
-import RightPanel from '@/components/dashboard/RightPanel';
-import Sidebar from '@/components/dashboard/Sidebar';
+import UnifiedPanel from '@/components/dashboard/UnifiedPanel';
 import MapComponent from '@/components/map/Map';
 import Header from '@/components/ui/Header';
 
@@ -66,15 +65,24 @@ export default function WebGISPage() {
       )}
 
       <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar
+        <UnifiedPanel
           onSimulationRun={handleSimulationRun}
+          onAnalyzeRoutes={handleAnalyzeRoutes}
+          onRunABM={handleRunABM}
           isLoading={sim.isLoading}
           sweResult={sim.sweResult}
+          routingResult={sim.routingResult}
+          abmResult={sim.abmResult}
           tesList={sim.tesList}
+          hasSimulated={sim.hasSimulated}
           customEpicenter={customEpicenter}
           isPickingEpicenter={isPickingEpicenter}
           onPickEpicenterToggle={() => setIsPickingEpicenter((prev) => !prev)}
           onResetEpicenter={() => setCustomEpicenter(null)}
+          customOrigin={customOrigin}
+          isPickingOrigin={isPickingOrigin}
+          onPickOriginToggle={() => setIsPickingOrigin((prev) => !prev)}
+          onResetOrigin={() => setCustomOrigin(null)}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           <MapComponent
@@ -100,26 +108,13 @@ export default function WebGISPage() {
               setIsPickingOrigin(false);
             }}
           />
-          <BottomBar
+          {/* <BottomBar
             simulationActive={sim.hasSimulated}
             impactResult={sim.impactResult}
             sweResult={sim.sweResult}
             routingResult={sim.routingResult}
-          />
+          /> */}
         </div>
-        <RightPanel
-          onAnalyzeRoutes={handleAnalyzeRoutes}
-          onRunABM={handleRunABM}
-          isLoading={sim.isLoading}
-          routingResult={sim.routingResult}
-          abmResult={sim.abmResult}
-          tesList={sim.tesList}
-          hasSimulated={sim.hasSimulated}
-          customOrigin={customOrigin}
-          isPickingOrigin={isPickingOrigin}
-          onPickOriginToggle={() => setIsPickingOrigin((prev) => !prev)}
-          onResetOrigin={() => setCustomOrigin(null)}
-        />
       </div>
     </div>
   );
