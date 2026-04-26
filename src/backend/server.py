@@ -19,6 +19,7 @@ import sys
 import time
 import math
 import random
+import traceback
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI
@@ -316,50 +317,99 @@ async def status_check():
 # ADMIN DATA ENDPOINTS (Desa & TES)
 # ════════════════════════════════════════════════════════════════════════════════
 
-# Mock data for admin endpoints
-MOCK_DESA = [
-    {"name": "Gadingsari", "lat": -7.998, "lon": 110.267},
-    {"name": "Srigading", "lat": -7.985, "lon": 110.285},
-    {"name": "Tirtosari", "lat": -7.975, "lon": 110.255},
-    {"name": "Poncosari", "lat": -7.963, "lon": 110.298},
-    {"name": "Trimurti", "lat": -7.952, "lon": 110.244},
-    {"name": "Banaran", "lat": -7.941, "lon": 110.311},
-    {"name": "Palbapang", "lat": -7.930, "lon": 110.280},
-    {"name": "Sabdodadi", "lat": -7.920, "lon": 110.262},
-]
-
-MOCK_TES = [
-    {"id": "TES-01", "name": "TES Masjid Al Huda", "lat": -7.96843133606, "lon": 110.233926052, "kapasitas": 500},
-    {"id": "TES-02", "name": "TES BPP Srandakan", "lat": -7.96095456288, "lon": 110.241307048, "kapasitas": 500},
-    {"id": "TES-03", "name": "TES SD Muh Gunturgeni", "lat": -7.96321767428, "lon": 110.248343758, "kapasitas": 500},
-    {"id": "TES-04", "name": "TES Masjid Al Firdaus", "lat": -7.96933305549, "lon": 110.243332044, "kapasitas": 500},
-    {"id": "TES-05", "name": "TES SD Koripan", "lat": -7.97668879901, "lon": 110.23588092, "kapasitas": 500},
-    {"id": "TES-06", "name": "TES Lapangan Sorobayan", "lat": -7.96926275459, "lon": 110.255317008, "kapasitas": 500},
-    {"id": "TES-07", "name": "TES SD Rejoniten", "lat": -7.98496856992, "lon": 110.250062291, "kapasitas": 500},
-    {"id": "TES-08", "name": "TES Kalurahan Gadingharjo", "lat": -7.9794643436, "lon": 110.263849605, "kapasitas": 500},
-    {"id": "TES-09", "name": "TES Lapangan Srigading", "lat": -7.97581529443, "lon": 110.280636194, "kapasitas": 500},
-    {"id": "TES-10", "name": "TES Pasar Sangkeh", "lat": -7.98229057658, "lon": 110.286228682, "kapasitas": 500},
-]
+# ════════════════════════════════════════════════════════════════════════════════
+# ℹ️  MOCK DATA REMOVED - Use real data from shapefiles
+# ════════════════════════════════════════════════════════════════════════════════
 
 
 @app.get("/admin/desa")
 async def get_admin_desa():
     """Get list of all administrative villages (desa/kelurahan)."""
-    return {
-        "status": "ok",
-        "count": len(MOCK_DESA),
-        "desa": MOCK_DESA
-    }
+    try:
+        import geopandas as gpd
+        desa_shp_path = os.path.join(Config.VEKTOR_DIR, "Administrasi_Desa.shp")
+
+        if not os.path.exists(desa_shp_path):
+            return {
+                "status": "error",
+                "message": "Shapefile Administrasi_Desa.shp tidak ditemukan",
+                "count": 0,
+                "desa": []
+            }
+
+        gdf = gpd.read_file(desa_shp_path).to_crs(epsg=4326)
+
+        desa_list = []
+        for _, row in gdf.iterrows():
+            geom = row.geometry
+            if geom is None:
+                continue
+            centroid = geom.centroid
+            desa_list.append({
+                "name": row.get('NAMOBJ', row.get('DESA', 'Unknown')),
+                "lat": centroid.y,
+                "lon": centroid.x
+            })
+
+        return {
+            "status": "ok",
+            "count": len(desa_list),
+            "desa": desa_list
+        }
+    except Exception as e:
+        logger.error(f"Error loading desa data: {e}")
+        return {
+            "status": "error",
+            "message": f"Gagal memuat data desa: {str(e)}",
+            "count": 0,
+            "desa": []
+        }
 
 
 @app.get("/admin/tes")
 async def get_admin_tes():
     """Get list of all Temporary Evacuation Shelters (TES)."""
-    return {
-        "status": "ok",
-        "count": len(MOCK_TES),
-        "tes": MOCK_TES
-    }
+    try:
+        import geopandas as gpd
+        tes_shp_path = os.path.join(Config.VEKTOR_DIR, "TES_Bantul.shp")
+
+        if not os.path.exists(tes_shp_path):
+            return {
+                "status": "error",
+                "message": "Shapefile TES_Bantul.shp tidak ditemukan",
+                "count": 0,
+                "tes": []
+            }
+
+        gdf = gpd.read_file(tes_shp_path).to_crs(epsg=4326)
+
+        tes_list = []
+        for _, row in gdf.iterrows():
+            geom = row.geometry
+            if geom is None:
+                continue
+            centroid = geom.centroid
+            tes_list.append({
+                "id": row.get('FID', row.get('id', f'TES-{len(tes_list)+1}')),
+                "name": row.get('NAMOBJ', row.get('name', 'TES Unknown')),
+                "lat": centroid.y,
+                "lon": centroid.x,
+                "kapasitas": row.get('kapasitas', 500)  # Default if not available
+            })
+
+        return {
+            "status": "ok",
+            "count": len(tes_list),
+            "tes": tes_list
+        }
+    except Exception as e:
+        logger.error(f"Error loading TES data: {e}")
+        return {
+            "status": "error",
+            "message": f"Gagal memuat data TES: {str(e)}",
+            "count": 0,
+            "tes": []
+        }
 
 
 @app.get("/admin/faults")
@@ -457,113 +507,12 @@ class RoutingRequest(BaseModel):
     tes_id: Optional[str] = Field(default=None)
 
 
-# Mock response data
-MOCK_SWE_RESULT = {
-    "wave_path": [
-        {"distance_km": 0, "arrival_time_min": 0, "wave_height_m": 12.0, "speed_kmh": 720, "source": "BLEND"},
-        {"distance_km": 10, "arrival_time_min": 1.1, "wave_height_m": 7.8, "speed_kmh": 640, "source": "BATNAS"},
-        {"distance_km": 30, "arrival_time_min": 4.0, "wave_height_m": 3.9, "speed_kmh": 520, "source": "GEBCO"},
-    ],
-    "max_inundation_m": 8.3,
-    "arrival_time_min": 22,
-    "affected_area_km2": 47.5,
-}
-
-MOCK_IMPACT_RESULT = {
-    "summary": {
-        "total_terdampak": 18420,
-        "zona_sangat_tinggi": 4210,
-        "zona_tinggi": 7830,
-        "zona_sedang": 5180,
-        "zona_rendah": 1200,
-    },
-    "affected_villages": [
-        {"kelurahan": "Gadingsari", "population": 4250, "terdampak": 2975, "percentage": 70, "zona_bahaya": "Sangat Tinggi", "color": "#f87171", "coordinates": [-7.998, 110.267]},
-        {"kelurahan": "Srigading", "population": 3820, "terdampak": 2674, "percentage": 70, "zona_bahaya": "Sangat Tinggi", "color": "#f87171", "coordinates": [-7.985, 110.285]},
-    ],
-    "chart_data": {"donut": [
-        {"label": "Zona Sangat Tinggi", "value": 4210, "color": "#f87171"},
-        {"label": "Zona Tinggi", "value": 7830, "color": "#fb923c"},
-    ]},
-}
-
-MOCK_ABM_RESULT = {
-    "total_agents": 100,
-    "safe_count": 87,
-    "trapped_count": 13,
-    "avg_evacuation_time_min": 35.5,
-    "frames": [
-        {"time_min": 0, "agents": []},
-        {"time_min": 5, "agents": [{"id": "a1", "lat": -7.998, "lon": 110.267, "status": "evacuating"}]},
-    ],
-}
-
-MOCK_ROUTING_RESULT = {
-    "routes": [
-        {
-            "desa": "Gadingsari",
-            "target_tes": "TES-01",
-            "route_path": [[-7.998, 110.267], [-7.990, 110.270], [-7.983, 110.275]],
-            "distance_km": 2.3,
-            "walk_time_min": 35,
-            "can_evacuate": True,
-            "status": "optimal",
-            "color": "#4ade80",
-            "score": 0.92,
-        },
-        {
-            "desa": "Srigading",
-            "target_tes": "TES-02",
-            "route_path": [[-7.985, 110.285], [-7.978, 110.282], [-7.971, 110.279]],
-            "distance_km": 1.8,
-            "walk_time_min": 28,
-            "can_evacuate": True,
-            "status": "optimal",
-            "color": "#4ade80",
-            "score": 0.88,
-        },
-        {
-            "desa": "Tirtosari",
-            "target_tes": "TES-03",
-            "route_path": [[-7.975, 110.255], [-7.970, 110.260], [-7.965, 110.265]],
-            "distance_km": 1.2,
-            "walk_time_min": 18,
-            "can_evacuate": True,
-            "status": "optimal",
-            "color": "#4ade80",
-            "score": 0.95,
-        },
-        {
-            "desa": "Poncosari",
-            "target_tes": "TES-04",
-            "route_path": [[-7.963, 110.298], [-7.958, 110.290], [-7.953, 110.285]],
-            "distance_km": 2.5,
-            "walk_time_min": 38,
-            "can_evacuate": True,
-            "status": "alternatif",
-            "color": "#facc15",
-            "score": 0.72,
-        },
-        {
-            "desa": "Banaran",
-            "target_tes": "TES-05",
-            "route_path": [[-7.941, 110.311], [-7.948, 110.305], [-7.955, 110.300]],
-            "distance_km": 3.1,
-            "walk_time_min": 47,
-            "can_evacuate": True,
-            "status": "alternatif",
-            "color": "#facc15",
-            "score": 0.65,
-        },
-    ],
-    "summary": {
-        "total_routes": 5,
-        "can_evacuate": 5,
-        "cannot_evacuate": 0,
-        "success_rate": 100.0,
-    },
-}
-
+# ════════════════════════════════════════════════════════════════════════════════
+# ❌ ALL MOCK DATA REMOVED - Use real data only
+# ════════════════════════════════════════════════════════════════════════════════
+# ℹ️  Mock SWE, Impact, and ABM results removed to prevent confusion
+# ℹ️  Frontend will receive None/empty when data is not available
+# ℹ️  This ensures UI properly indicates missing backend data
 
 @app.post("/simulate")
 async def post_simulate(params: SimulationParams):
@@ -737,59 +686,106 @@ async def post_simulate(params: SimulationParams):
     affected_area = 47.5 * ((mag - 5) / 2) ** 2
 
     # ════════════════════════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════════════════════
     #  VILLAGE IMPACT ASSESSMENT - Distance-Based Analysis
     # ════════════════════════════════════════════════════════════════════════════════
     affected_villages = []
 
-    for desa in MOCK_DESA:
-        # Calculate distance dari epicenter ke desa (Haversine formula)
-        dist_from_source = haversine_distance(epicenter_lat, epicenter_lon,
-                                              desa["lat"], desa["lon"])
+    try:
+        # Load desa from shapefile (real data, no mock)
+        import geopandas as gpd
+        desa_shp_path = os.path.join(Config.VEKTOR_DIR, "Administrasi_Desa.shp")
 
-        # Zone classification berdasarkan jarak dan magnitude
-        if use_fault_data:
-            # Fault-based: lebih akurat
-            dist_threshold = mag * 5  # M7 = 35km, M8 = 40km, M9 = 45km
+        if os.path.exists(desa_shp_path):
+            gdf_desa = gpd.read_file(desa_shp_path).to_crs(epsg=4326)
+
+            # Filter villages in study area (OBJECTID filtering)
+            target_ids = [3830, 3831, 3832, 3893, 3912, 3922, 3952, 3977, 3978, 3981]
+            gdf_filtered = gdf_desa[gdf_desa['OBJECTID'].isin(target_ids)]
+
+            for _, row in gdf_filtered.iterrows():
+                geom = row.geometry
+                if geom is None:
+                    continue
+                centroid = geom.centroid
+                desa_lat = centroid.y
+                desa_lon = centroid.x
+
+                # Calculate distance dari epicenter ke desa
+                dist_from_source = haversine_distance(epicenter_lat, epicenter_lon,
+                                                      desa_lat, desa_lon)
+
+                # Zone classification
+                if use_fault_data:
+                    dist_threshold = mag * 5
+                else:
+                    dist_threshold = mag * 4
+
+                if dist_from_source < dist_threshold * 0.3:
+                    zone, color = "Sangat Tinggi", "#f87171"
+                    percentage = min(95, 50 + (mag - 6) * 15)
+                elif dist_from_source < dist_threshold * 0.6:
+                    zone, color = "Tinggi", "#fb923c"
+                    percentage = min(70, 30 + (mag - 6) * 10)
+                elif dist_from_source < dist_threshold:
+                    zone, color = "Sedang", "#fbbf24"
+                    percentage = min(50, 15 + (mag - 6) * 8)
+                else:
+                    zone, color = "Rendah", "#a3e635"
+                    percentage = min(30, 5 + (mag - 6) * 5)
+
+                # Get population from shapefile or fallback
+                population = row.get('Penduduk', row.get('JIWA', 3000))
+                try:
+                    population = int(population)
+                except:
+                    population = max(1000, min(6000, int(random.gauss(3500, 800))))
+
+                terdampak = int(population * percentage / 100)
+
+                affected_villages.append({
+                    "kelurahan": row.get('NAMOBJ', row.get('DESA', 'Unknown')),
+                    "population": population,
+                    "terdampak": terdampak,
+                    "percentage": int(percentage),
+                    "zona_bahaya": zone,
+                    "color": color,
+                    "coordinates": [desa_lat, desa_lon]
+                })
+
+            logger.info(f"[SWE] Generated impact for {len(affected_villages)} villages from shapefile")
+
         else:
-            # Simplified
-            dist_threshold = mag * 4
+            logger.warning(f"[SWE] Shapefile not found: {desa_shp_path}")
+            logger.warning("[SWE] Village impact assessment skipped - no data available")
 
-        if dist_from_source < dist_threshold * 0.3:
-            zone, color = "Sangat Tinggi", "#f87171"
-            percentage = min(95, 50 + (mag - 6) * 15)
-        elif dist_from_source < dist_threshold * 0.6:
-            zone, color = "Tinggi", "#fb923c"
-            percentage = min(70, 30 + (mag - 6) * 10)
-        elif dist_from_source < dist_threshold:
-            zone, color = "Sedang", "#fbbf24"
-            percentage = min(50, 15 + (mag - 6) * 8)
-        else:
-            zone, color = "Rendah", "#a3e635"
-            percentage = min(30, 5 + (mag - 6) * 5)
-
-        population = max(1000, min(6000, int(random.gauss(3500, 800))))
-        terdampak = int(population * percentage / 100)
-
-        affected_villages.append({
-            "kelurahan": desa["name"],
-            "population": population,
-            "terdampak": terdampak,
-            "percentage": int(percentage),
-            "zona_bahaya": zone,
-            "color": color,
-            "coordinates": [desa["lat"], desa["lon"]]
-        })
+    except Exception as e:
+        logger.error(f"[SWE] Error loading village data: {e}")
+        logger.warning("[SWE] Village impact assessment skipped due to error")
 
     # Calculate impact summary
     summary_counts = {"Sangat Tinggi": 0, "Tinggi": 0, "Sedang": 0, "Rendah": 0}
     for v in affected_villages:
         summary_counts[v["zona_bahaya"]] += v["terdampak"]
 
+    # ════════════════════════════════════════════════════════════════════════════════
+    #  INUNDATION GEOJSON (NO MOCK DATA - ONLY USE REAL SWE RESULTS)
+    # ════════════════════════════════════════════════════════════════════════════════
+    inundation_geojson = None
+
+    # ❌ REMOVED: All mock data generation
+    # ℹ️  Inundation geojson will only be generated when real SWE simulation results are available
+    # ℹ️  Frontend should check if inundation_geojson is None and handle accordingly
+    # ℹ️  This prevents confusion from mock/dummy inundation data
+    logger.info("[SWE] Inundation GeoJSON: Not generated (real SWE solver not connected yet)")
+    logger.info("[SWE] ℹ️  To enable: Connect to real SWE solver simulation results")
+
     swe_result = {
         "wave_path": wave_path,
         "max_inundation_m": round(max_inundation, 1),
         "arrival_time_min": int(arrival_shore),
-        "affected_area_km2": round(affected_area, 1)
+        "affected_area_km2": round(affected_area, 1),
+        "inundation_geojson": inundation_geojson  # ✅ Added!
     }
 
     impact_result = {
@@ -985,28 +981,79 @@ async def post_routing(req: RoutingRequest):
         else:
             logger.info(f"Road graph loaded: {ROAD_GRAPH.graph.number_of_nodes()} nodes, {ROAD_GRAPH.graph.number_of_edges()} edges")
 
-    # Find target TES
+    # Find target TES from shapefile
     target_tes = None
-    for tes in MOCK_TES:
-        if tes["id"] == req.tes_id:
-            target_tes = tes
-            break
+    try:
+        import geopandas as gpd
+        tes_shp_path = os.path.join(Config.VEKTOR_DIR, "TES_Bantul.shp")
+
+        if os.path.exists(tes_shp_path):
+            gdf_tes = gpd.read_file(tes_shp_path).to_crs(epsg=4326)
+
+            for _, row in gdf_tes.iterrows():
+                geom = row.geometry
+                if geom is None:
+                    continue
+                centroid = geom.centroid
+
+                tes_id = row.get('FID', row.get('id', ''))
+                if tes_id == req.tes_id or str(tes_id) == str(req.tes_id):
+                    target_tes = {
+                        "id": tes_id,
+                        "name": row.get('NAMOBJ', row.get('name', 'TES')),
+                        "lat": centroid.y,
+                        "lon": centroid.x
+                    }
+                    break
+
+    except Exception as e:
+        logger.error(f"Error loading TES data: {e}")
 
     if not target_tes:
         return {
             "routes": [],
             "summary": {"total_routes": 0, "can_evacuate": 0, "cannot_evacuate": 0, "success_rate": 0},
-            "isMock": False
+            "isMock": False,
+            "error": f"TES {req.tes_id} tidak ditemukan"
         }
 
-    # Use custom origin if provided, otherwise use affected villages
+    # Use custom origin if provided, otherwise load villages from shapefile
     origins = []
     if req.origin_lat and req.origin_lon:
         # User mode: single origin → single TES routing
         origins.append({"name": "Lokasi Asal", "lat": req.origin_lat, "lon": req.origin_lon})
     else:
-        # Admin/analysis mode: multiple origins → single TES routing
-        origins = MOCK_DESA[:5]  # Use first 5 villages as origins
+        # Admin/analysis mode: load study area villages as origins
+        try:
+            import geopandas as gpd
+            desa_shp_path = os.path.join(Config.VEKTOR_DIR, "Administrasi_Desa.shp")
+
+            if os.path.exists(desa_shp_path):
+                gdf_desa = gpd.read_file(desa_shp_path).to_crs(epsg=4326)
+                target_ids = [3830, 3831, 3832, 3893, 3912, 3922, 3952, 3977, 3978, 3981]
+                gdf_filtered = gdf_desa[gdf_desa['OBJECTID'].isin(target_ids)]
+
+                for _, row in gdf_filtered.iterrows():
+                    geom = row.geometry
+                    if geom is None:
+                        continue
+                    centroid = geom.centroid
+                    origins.append({
+                        "name": row.get('NAMOBJ', 'Desa'),
+                        "lat": centroid.y,
+                        "lon": centroid.x
+                    })
+
+                logger.info(f"[ROUTING] Loaded {len(origins)} villages as origins")
+
+        except Exception as e:
+            logger.error(f"Error loading village data: {e}")
+            return {
+                "routes": [],
+                "summary": {"total_routes": 0, "can_evacuate": 0, "cannot_evacuate": 0, "success_rate": 0},
+                "isMock": False,
+                "error": f"Gagal memuat data desa: {str(e)}"
+            }
 
     routes = []
     for origin in origins:

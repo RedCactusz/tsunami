@@ -46,6 +46,13 @@ try:
 except ImportError:
     RASTERIO_AVAILABLE = False
 
+# ── Opsional: scipy untuk interpolasi dan filtering ──────────────────────────
+try:
+    from scipy.ndimage import distance_transform_edt, uniform_filter
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+
 
 # ============================================================================
 # DATA CLASSES
@@ -130,7 +137,11 @@ class InundationConnector:
     Konversi SWEResults → InundationData untuk EvacuationABMSolver.
 
     Usage:
-        connector = InundationConnector(desa_shapefile_path, dem_manager)
+        connector = InundationConnector(
+            desa_shp_path="path/to/Administrasi_Desa.shp",
+            dem_manager=dem_manager,
+            study_area_objectids=[3830, 3831, 3832, 3893, 3912, 3922, 3952, 3977, 3978, 3981]
+        )
         inundation = connector.process(swe_results, bathy_grid)
         abm_solver.set_swe_results(inundation.to_abm_dict())
     """
@@ -160,10 +171,17 @@ class InundationConnector:
         'Selopamioro': 3700, 'Imogiri': 5800, 'Bantul': 6200,
     }
 
-    def __init__(self, desa_shp_path: Optional[str] = None, dem_manager=None):
+    # Target OBJECTIDs untuk study area (Bantul coastal villages)
+    STUDY_AREA_OBJECTIDS = [3830, 3831, 3832, 3893, 3912, 3922, 3952, 3977, 3978, 3981]
+
+    def __init__(self, desa_shp_path: Optional[str] = None, dem_manager=None,
+                 study_area_objectids: Optional[List[int]] = None):
         self.desa_shp_path = desa_shp_path
         self.dem_manager = dem_manager
         self._desa_cache: Optional[List[Dict]] = None
+        # Gunakan OBJECTIDs yang diberikan, atau default ke study area Bantul
+        self.study_area_objectids = (study_area_objectids if study_area_objectids is not None
+                                     else self.STUDY_AREA_OBJECTIDS)
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -385,7 +403,10 @@ class InundationConnector:
 
     def _load_desa(self) -> List[Dict]:
         """Load data desa dari shapefile atau fallback statis Bantul.
-        Menyimpan polygon geometry untuk visualisasi inundasi per-desa."""
+        Menyimpan polygon geometry untuk visualisasi inundasi per-desa.
+
+        Filter hanya desa dalam study area berdasarkan OBJECTID.
+        """
         if self._desa_cache is not None:
             return self._desa_cache
 
@@ -394,6 +415,16 @@ class InundationConnector:
                 import geopandas as gpd
                 gdf = gpd.read_file(self.desa_shp_path)
                 gdf = gdf.to_crs(epsg=4326)
+
+                # Filter hanya study area villages berdasarkan OBJECTID
+                if 'OBJECTID' in gdf.columns and self.study_area_objectids:
+                    gdf_filtered = gdf[gdf['OBJECTID'].isin(self.study_area_objectids)]
+                    logger.info(f"[Connector] Filtered to {len(gdf_filtered)} villages "
+                               f"from {len(gdf)} total (OBJECTIDs: {self.study_area_objectids})")
+                    gdf = gdf_filtered
+                else:
+                    logger.warning(f"[Connector] OBJECTID column not found or no filter specified, "
+                                 f"loading all {len(gdf)} villages")
 
                 desa_list = []
                 for _, row in gdf.iterrows():
@@ -654,8 +685,11 @@ class InundationConnector:
             try:
                 from shapely.prepared import prep
                 prepared_mask = prep(admin_union)
-            except Exception:
-                pass
+                logger.info(f"[Inundasi] ✅ Admin mask prepared successfully (type: {type(admin_union).__name__})")
+            except Exception as e:
+                logger.warning(f"[Inundasi] ❌ Failed to prepare admin mask: {e}")
+        else:
+            logger.warning(f"[Inundasi] ❌ Admin mask NOT created: SHAPELY_AVAILABLE={SHAPELY_AVAILABLE}, admin_union={'exists' if admin_union is not None else 'None'}")
 
         # ── Grid hi-res untuk flood-fill ──
         FILL_DX = 0.0008   # ~89m per sel (balance resolusi vs performa)
@@ -703,18 +737,87 @@ class InundationConnector:
                             dem_hits += 1
                 logger.info(f"[Inundasi] DEM hits (sampled): {dem_hits}")
 
-        # Isi NaN yang tersisa dengan interpolasi nearest-neighbor
+        # ── FALLBACK ELEVATION (jika DEM tidak tersedia) ──
+        # Gunakan model elevasi sederhana berdasarkan latitude & jarak dari pantai
+        nan_count_before = int(np.isnan(elev_grid).sum())
+        if nan_count_before == total_cells:
+            logger.warning("[Inundasi] ⚠️  DEM tidak tersedia, menggunakan fallback elevation model")
+            logger.warning("[Inundasi] ⚠️  Hasil mungkin tidak akurat untuk area non-pesisir!")
+
+            # Buat simple elevation model:
+            # - Lat < -8.02 = laut (negatif)
+            # - Lat > -8.02 = darat (positif, meningkat ke utara)
+            lat_grid, lon_grid = np.meshgrid(fill_lat_arr, fill_lon_arr, indexing='ij')
+
+            # Referensi coastline (garis pantai Bantul)
+            coast_lat_ref = -8.02
+
+            # Elevasi dasar berdasarkan latitude dengan slope lebih curam
+            # Di selatan coast: negatif (laut)
+            # Di utara coast: positif (darat), semakin utara semakin tinggi
+            # FIX: Gunakan slope 200m/derajat (lebih realistis) bukan 100m
+            elev_from_lat = (lat_grid - coast_lat_ref) * 200.0  # 200m per 1 derajat lat
+
+            # Tambahan topografi lokal dengan variasi lebih besar
+            # Gunakan kombinasi sinus untuk bukit-bukit kecil
+            elev_from_lon = np.sin((lon_grid - 110.3) * 15) * 5.0 + \
+                           np.cos((lat_grid - coast_lat_ref) * 80) * 3.0  # ±5-8m variasi
+
+            # Gabungkan
+            elev_grid = elev_from_lat + elev_from_lon
+
+            # Smoothing dengan simple average (jika scipy tersedia)
+            if SCIPY_AVAILABLE:
+                elev_grid = uniform_filter(elev_grid, size=3, mode='nearest')
+                logger.info("[Inundasi] Applied scipy smoothing")
+            else:
+                # Manual smoothing tanpa scipy - skip untuk sekarang
+                logger.warning("[Inundasi] scipy tidak tersedia, skipping elevation smoothing")
+
+            logger.info(f"[Inundasi] Fallback elevation model: min={elev_grid.min():.1f}m, max={elev_grid.max():.1f}m")
+            logger.warning("[Inundasi] ⚠️  DENGAN FALLBACK: inundasi mungkin overestimate di daratan tinggi!")
+
+        # ── PERBAIKI: Set NaN cells di laut ke nilai negatif ──
+        # Ini mencegah flood-fill menyebar ke laut
         nan_count = int(np.isnan(elev_grid).sum())
-        valid_count = int(np.sum(~np.isnan(elev_grid)))
-        if nan_count > 0 and valid_count > 0:
-            try:
-                from scipy.ndimage import distance_transform_edt
-                mask = np.isnan(elev_grid)
-                ind = distance_transform_edt(mask, return_distances=False, return_indices=True)
-                elev_grid = elev_grid[tuple(ind)]
-                logger.info(f"[Inundasi] Interpolasi {nan_count} sel NaN via nearest-neighbor")
-            except ImportError:
-                logger.warning("[Inundasi] scipy tidak tersedia — NaN tetap ada")
+        if nan_count > 0:
+            logger.info(f"[Inundasi] {nan_count} NaN cells ditemukan")
+
+            # Gunakan latitude sebagai proxy untuk menentukan laut vs darat
+            # Referensi coastline dari analisis garis pantai: ~ -8.02
+            coast_lat_ref = -8.02
+            lat_grid, _ = np.meshgrid(fill_lat_arr, fill_lon_arr, indexing='ij')
+
+            # Cells di selatan coastline → laut (set ke -10m)
+            # Cells di utara coastline → tetap NaN (akan diinterpolasi)
+            ocean_mask = (lat_grid < coast_lat_ref) & np.isnan(elev_grid)
+            land_nan_mask = (lat_grid >= coast_lat_ref) & np.isnan(elev_grid)
+
+            ocean_count = int(np.sum(ocean_mask))
+            land_nan_count = int(np.sum(land_nan_mask))
+
+            if ocean_count > 0:
+                elev_grid[ocean_mask] = -10.0  # Set laut ke -10m
+                logger.info(f"[Inundasi] {ocean_count} NaN cells di laut set ke -10m")
+
+            # Interpolasi NaN cells di darat (jika scipy tersedia)
+            if land_nan_count > 0:
+                if SCIPY_AVAILABLE:
+                    try:
+                        mask = np.isnan(elev_grid)
+                        ind = distance_transform_edt(mask, return_distances=False, return_indices=True)
+                        elev_grid = elev_grid[tuple(ind)]
+                        logger.info(f"[Inundasi] Interpolasi {land_nan_count} sel NaN darat via nearest-neighbor")
+                    except Exception as e:
+                        logger.warning(f"[Inundasi] Interpolasi gagal: {e}")
+                        # Fallback: set ke 5m (darat rata-rata)
+                        elev_grid[land_nan_mask] = 5.0
+                        logger.warning(f"[Inundasi] {land_nan_count} NaN darat set ke 5m (fallback)")
+                else:
+                    logger.warning(f"[Inundasi] {land_nan_count} NaN darat tapi scipy tidak terinstall")
+                    # Fallback: set ke 5m (darat rata-rata)
+                    elev_grid[land_nan_mask] = 5.0
+                    logger.warning(f"[Inundasi] {land_nan_count} NaN darat set ke 5m (fallback)")
 
         # ── Step 2: Identifikasi sel pantai (seed BFS) ──
         is_land = np.where(~np.isnan(elev_grid), elev_grid >= 0, False)

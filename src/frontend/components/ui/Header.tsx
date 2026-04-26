@@ -12,7 +12,6 @@ interface StatusBadgeProps {
 
 interface HeaderProps {
   serverStatus?: ServerStatus;
-  isMockData?: boolean;
   onRefreshServer?: () => Promise<ServerStatus>;
 }
 
@@ -34,7 +33,8 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ icon, label, status, title })
   );
 };
 
-export default function Header({ serverStatus = 'offline', isMockData = false, onRefreshServer }: HeaderProps) {
+export default function Header({ serverStatus = 'offline', onRefreshServer }: HeaderProps) {
+  // Status badges currently use hardcoded values - could be enhanced to use serverStatus and onRefreshServer
   return (
     <header className="flex-shrink-0 bg-gradient-to-r from-slate-900 from-90% to-slate-800 border-b border-cyan-600 border-opacity-14 px-6 py-3 flex items-center gap-4 z-50 shadow-sm"
       style={{

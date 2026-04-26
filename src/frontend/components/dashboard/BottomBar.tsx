@@ -8,10 +8,9 @@ interface BottomBarProps {
   impactResult?: ImpactResult | null;
   sweResult?: SWEResult | null;
   routingResult?: RoutingResult | null;
-  isMockData?: boolean;
 }
 
-const BottomBar: React.FC<BottomBarProps> = ({ simulationActive = false, impactResult, sweResult, routingResult, isMockData }) => {
+const BottomBar: React.FC<BottomBarProps> = ({ simulationActive = false, impactResult, sweResult, routingResult }) => {
   return (
     <div className="flex-shrink-0 flex border-t overflow-hidden h-56"
       style={{
