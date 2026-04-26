@@ -16,12 +16,12 @@
 
 | No | Nama | NIM | Peran |
 |-----|------|-----|------|
-| 1 | Muhammad Rouf Indhra Dewa S | 24/552974/PTK/16494 | Lead Developer, Backend Architecture |
-| 2 | Zulfikar Baihakki Budiyono | 25/568388/PTK/16751 | Full-Stack Developer |
-| 3 | Oktavia Nutivara Waskito | 25/562735/PTK/16612 | Frontend & Visualization |
-| 4 | Saffira Noor Chotimah | 25/563053/PTK/16640 | GIS Analysis & Data Processing |
-| 5 | Frans Waas | 25/566567/PTK/16709 | Simulation & Algorithm |
-| 6 | Iman Taufiqqurrahman | 25/569788/PTK/16971 | Testing & Documentation |
+| 1 | Muhammad Rouf Indhra Dewa S | 24/552974/PTK/16494 |
+| 2 | Zulfikar Baihakki Budiyono | 25/568388/PTK/16751 |
+| 3 | Oktavia Nutivara Waskito | 25/562735/PTK/16612 |
+| 4 | Saffira Noor Chotimah | 25/563053/PTK/16640 |
+| 5 | Frans Waas | 25/566567/PTK/16709 |
+| 6 | Iman Taufiqqurrahman | 25/569788/PTK/16971 |
 
 ---
 
