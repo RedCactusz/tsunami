@@ -1484,16 +1484,32 @@ class EvacuationABMSolver:
         self._wave_arrival = {}      # (j, i) -> t_arrival_min
         self._inundation_kdtree = None
 
-        # ── Normalize grid_info from SWE format ──
+# ── Normalize grid_info from SWE format ──
         raw_gi = swe_output.get('grid_info', {})
-        lons = raw_gi.get('lons', [])
-        lats = raw_gi.get('lats', [])
         shape = raw_gi.get('shape', [])
+        
+        # Ambil points dari swe_output untuk menghitung BBOX yang akurat
+        # Jika SWE mengembalikan 'points' (list of tuples), gunakan itu.
+        points = swe_output.get('points', [])
+
+        if points:
+            # Gunakan fungsi core yang Anda miliki
+            from backend.simulations.core import bbox_from_points
+            min_lon, min_lat, max_lon, max_lat = bbox_from_points(points)
+        else:
+            # Fallback jika points tidak ada, gunakan lats/lons list atau raw metadata
+            lons = raw_gi.get('lons', [])
+            lats = raw_gi.get('lats', [])
+            min_lat = min(lats) if lats else raw_gi.get('lat_min', 0)
+            max_lat = max(lats) if lats else raw_gi.get('lat_max', 0)
+            min_lon = min(lons) if lons else raw_gi.get('lon_min', 0)
+            max_lon = max(lons) if lons else raw_gi.get('lon_max', 0)
+
         self._grid_meta = {
-            'lat_min': min(lats) if lats else raw_gi.get('lat_min', 0),
-            'lat_max': max(lats) if lats else raw_gi.get('lat_max', 0),
-            'lon_min': min(lons) if lons else raw_gi.get('lon_min', 0),
-            'lon_max': max(lons) if lons else raw_gi.get('lon_max', 0),
+            'lat_min': min_lat,
+            'lat_max': max_lat,
+            'lon_min': min_lon,
+            'lon_max': max_lon,
             'ny': shape[0] if len(shape) >= 2 else raw_gi.get('ny', 1),
             'nx': shape[1] if len(shape) >= 2 else raw_gi.get('nx', 1),
         }
