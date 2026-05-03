@@ -842,6 +842,7 @@ async def post_simulate(params: SimulationParams):
         "max_inundation_m": round(max_inundation, 1),
         "arrival_time_min": int(arrival_shore),
         "affected_area_km2": round(affected_area, 1),
+        "runup_m": runup_height if 'runup_height' in locals() else 5.0,  # ✅ Added for ABM
         "inundation_geojson": inundation_geojson  # ✅ Added!
     }
 

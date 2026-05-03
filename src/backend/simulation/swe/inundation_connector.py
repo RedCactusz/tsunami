@@ -963,7 +963,16 @@ class InundationConnector:
                 "fill_dx_deg": FILL_DX,
                 "fill_grid":   f"{fill_ny}x{fill_nx}",
                 "model":       "SWE + DEM_HiRes_BFS_FloodFill + Manning_Attenuation",
-            }
+            },
+            # ── Grid metadata untuk ABM coordinate calculations ──
+            "lat_min": float(fill_lat_min),
+            "lat_max": float(fill_lat_max),
+            "lon_min": float(fill_lon_min),
+            "lon_max": float(fill_lon_max),
+            "lats": fill_lat_arr.tolist(),
+            "lons": fill_lon_arr.tolist(),
+            "ny": int(fill_ny),
+            "nx": int(fill_nx),
         }
 
 

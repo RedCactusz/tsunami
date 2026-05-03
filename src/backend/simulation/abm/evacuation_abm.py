@@ -347,58 +347,237 @@ class DataCache:
                 logger.warning(f"Failed to load road file {fname}: {e}")
     
     def _build_desa_cache(self):
-        """Scan direktori untuk administrative boundaries."""
-        if not GEOPANDAS_AVAILABLE or not os.path.isdir(self.vektor_dir):
+        """Load pemukiman (settlements) dari Pemukiman.geojson atau shapefile fallback."""
+        if not os.path.isdir(self.vektor_dir):
             return
         
-        keywords = ['desa', 'kelurahan', 'administrasi']
-        for fname in os.listdir(self.vektor_dir):
-            if not fname.lower().endswith('.shp'):
-                continue
-            if not any(k in fname.lower() for k in keywords):
-                continue
+        # Helper function to convert UTM to lat/lon (Zone 49S)
+        def utm_to_latlon(easting, northing, zone=49, south=True):
+            """Convert UTM coordinates to lat/lon. Zone 49S for Bantul area.
             
-            fpath = os.path.join(self.vektor_dir, fname)
+            Uses pyproj for accurate transformation.
+            Raises ValueError if pyproj not available.
+            """
             try:
-                gdf = gpd.read_file(fpath)
-                if gdf.crs is None:
-                    gdf.set_crs(epsg=4326, inplace=True)
-                else:
-                    gdf = gdf.to_crs(epsg=4326)
+                from pyproj import Proj, Transformer
+                # Use modern pyproj API (Transformer)
+                utm_proj = Proj(proj='utm', zone=zone, ellps='WGS84', south=south)
+                wgs84_proj = Proj(proj='latlong', ellps='WGS84')
+                transformer = Transformer.from_proj(utm_proj, wgs84_proj)
+                lon, lat = transformer.transform(easting, northing)
+                return lat, lon
+            except (ImportError, AttributeError):
+                # Fallback to deprecated API for older pyproj versions
+                try:
+                    from pyproj import Proj, transform
+                    utm_proj = Proj(proj='utm', zone=zone, ellps='WGS84', south=south)
+                    wgs84_proj = Proj(proj='latlong', ellps='WGS84')
+                    lon, lat = transform(utm_proj, wgs84_proj, easting, northing)
+                    return lat, lon
+                except Exception as e:
+                    raise ValueError(f"UTM conversion failed: {e}")
+        
+        # Try loading from Pemukiman.geojson first
+        geojson_path = os.path.join(self.vektor_dir, "Pemukiman.geojson")
+        if os.path.exists(geojson_path):
+            try:
+                import json
+                with open(geojson_path, 'r', encoding='utf-8') as f:
+                    geojson_data = json.load(f)
                 
-                for idx, row in gdf.iterrows():
-                    geom = row.geometry
-                    if geom is None:
-                        continue
+                features = geojson_data.get('features', [])
+                logger.info(f"Loading settlements from Pemukiman.geojson with {len(features)} features")
+                
+                # Check if we need to convert UTM to lat/lon
+                needs_utm_conversion = False
+                if features:
+                    test_geom = features[0].get('geometry', {})
+                    test_geom_type = test_geom.get('type')
+                    test_coords = test_geom.get('coordinates', [])
                     
-                    name = (row.get('NAMOBJ') or row.get('DESA') or 
-                             row.get('NAMA') or row.get('name') or 
-                             f"Desa_{idx}")
-                    pop = (row.get('JIWA') or row.get('POPULATION') or 
-                            row.get('JUMLAH_PEN') or 0)
+                    # Handle both Polygon and MultiPolygon
+                    if test_geom_type == 'Polygon' and test_coords and test_coords[0]:
+                        test_point = test_coords[0][0]
+                    elif test_geom_type == 'MultiPolygon' and test_coords and test_coords[0] and test_coords[0][0]:
+                        test_point = test_coords[0][0][0]  # [poly][ring][point]
+                    else:
+                        test_point = None
+                    
+                    if test_point:
+                        test_x, test_y = test_point[0], test_point[1]
+                        # UTM coordinates typically in range [166000, 834000] for easting, [0, 10000000] for northing
+                        if test_x > 100000 and test_y > 100000:
+                            needs_utm_conversion = True
+                            logger.info(f"✅ Detected UTM coordinates (first point: {test_x:.0f}, {test_y:.0f}) - will convert to lat/lon (Zone 49S)")
+                
+                success_count = 0
+                for idx, feature in enumerate(features):
                     try:
-                        pop = int(pop)
-                    except (ValueError, TypeError):
-                        pop = 0
-                    
-                    if geom.geom_type == 'MultiPolygon':
-                        geom = max(geom.geoms, key=lambda g: g.area)
-                    if geom.geom_type != 'Polygon':
-                        continue
-                    
-                    poly_coords = [(p[0], p[1]) for p in geom.exterior.coords]
-                    centroid = get_valid_land_point(poly_coords, self.dem_mgr)
-                    
-                    self.desa.append({
-                        'id': len(self.desa),
-                        'name': str(name),
-                        'population': pop,
-                        'centroid_lat': centroid[0],
-                        'centroid_lon': centroid[1],
-                        'polygon': poly_coords
-                    })
+                        geom = feature.get('geometry', {})
+                        props = feature.get('properties', {})
+                        
+                        geom_type = geom.get('type')
+                        if geom_type not in ['Polygon', 'MultiPolygon']:
+                            continue
+                        
+                        coordinates = geom.get('coordinates', [])
+                        if not coordinates:
+                            continue
+                        
+                        # Handle Polygon vs MultiPolygon
+                        if geom_type == 'Polygon':
+                            poly_rings = [coordinates]
+                        else:  # MultiPolygon
+                            poly_rings = [p[0] for p in coordinates if p]
+                        
+                        if not poly_rings or not poly_rings[0]:
+                            continue
+                        
+                        poly_coords = poly_rings[0]
+                        
+                        # Convert UTM to lat/lon if needed
+                        if needs_utm_conversion:
+                            try:
+                                poly_coords_converted = []
+                                for coord in poly_coords:
+                                    # Handle both 2D [x, y] and 3D [x, y, z] coordinates
+                                    if len(coord) >= 2:
+                                        easting, northing = coord[0], coord[1]
+                                        lat, lon = utm_to_latlon(easting, northing)
+                                        poly_coords_converted.append((lon, lat))
+                                poly_coords = poly_coords_converted
+                                
+                                if idx == 0:
+                                    logger.info(f"UTM conversion sample: ({poly_coords[0][0]:.6f}, {poly_coords[0][1]:.6f})")
+                            except Exception as e:
+                                logger.warning(f"UTM conversion error for feature {idx}: {e}")
+                                continue
+                        
+                        # Extract properties
+                        name = (props.get('NAMA') or props.get('Nama') or 
+                               props.get('name') or f"Pemukiman_{idx}")
+                        pop = props.get('JIWA') or props.get('POPULATION') or props.get('JUMLAH_PEN') or None
+                        try:
+                            pop = int(pop) if pop else None
+                        except (ValueError, TypeError):
+                            pop = None
+                        
+                        # Calculate centroid from polygon
+                        lats = [p[1] for p in poly_coords]
+                        lons = [p[0] for p in poly_coords]
+                        
+                        if not lats or not lons:
+                            continue
+                        
+                        centroid_lat = sum(lats) / len(lats)
+                        centroid_lon = sum(lons) / len(lons)
+                        
+                        # Fallback: estimate population from polygon area
+                        if pop is None or pop == 0:
+                            lat_range = max(lats) - min(lats)
+                            lon_range = max(lons) - min(lons)
+                            area_km2 = (lat_range * 111) * (lon_range * 111 * 0.707)
+                            pop = max(100, int(area_km2 * 500))
+                        
+                        self.desa.append({
+                            'id': len(self.desa),
+                            'name': str(name),
+                            'population': pop,
+                            'centroid_lat': centroid_lat,
+                            'centroid_lon': centroid_lon,
+                            'polygon': poly_coords
+                        })
+                        success_count += 1
+                        
+                    except Exception as e:
+                        if idx < 5:
+                            logger.debug(f"Error processing feature {idx}: {e}")
+                
+                logger.info(f"✅ Loaded {success_count} settlements from Pemukiman.geojson ({len(features)-success_count} skipped)")
+                
+                if success_count > 0:
+                    return
+                
             except Exception as e:
-                logger.warning(f"Failed to load desa file {fname}: {e}")
+                logger.error(f"Failed to load Pemukiman.geojson: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Fallback: Try loading from shapefile
+        if not GEOPANDAS_AVAILABLE:
+            logger.warning("Geopandas not available, cannot load shapefile fallback")
+            return
+        
+        keywords_list = [
+            ['permukiman', 'settlement', 'settlements'],
+            ['administrasi', 'desa', 'kelurahan'],
+        ]
+        
+        for keywords in keywords_list:
+            for fname in os.listdir(self.vektor_dir):
+                if not fname.lower().endswith('.shp'):
+                    continue
+                    
+                fname_lower = fname.lower()
+                if not any(k in fname_lower for k in keywords):
+                    continue
+                
+                fpath = os.path.join(self.vektor_dir, fname)
+                try:
+                    gdf = gpd.read_file(fpath)
+                    if gdf.crs is None:
+                        gdf.set_crs(epsg=4326, inplace=True)
+                    else:
+                        gdf = gdf.to_crs(epsg=4326)
+                    
+                    logger.info(f"Loading settlements from {fname} with {len(gdf)} features (shapefile fallback)")
+                    
+                    for idx, row in gdf.iterrows():
+                        geom = row.geometry
+                        if geom is None:
+                            continue
+                        
+                        name = (row.get('NAMOBJ') or row.get('NAMA') or row.get('DESA') or
+                                row.get('name') or f"Pemukiman_{idx}")
+                        pop = (row.get('JIWA') or row.get('POPULATION') or 
+                                row.get('JUMLAH_PEN') or row.get('JUMLAH_KK') or None)
+                        try:
+                            pop = int(pop) if pop else None
+                        except (ValueError, TypeError):
+                            pop = None
+                        
+                        if pop is None or pop == 0:
+                            if geom.geom_type == 'MultiPolygon':
+                                area_m2 = sum(g.area * 111320**2 for g in geom.geoms)
+                            else:
+                                area_m2 = geom.area * 111320**2
+                            area_km2 = area_m2 / 1e6
+                            pop = max(100, int(area_km2 * 500))
+                        
+                        if geom.geom_type == 'MultiPolygon':
+                            geom = max(geom.geoms, key=lambda g: g.area)
+                        if geom.geom_type != 'Polygon':
+                            continue
+                        
+                        poly_coords = [(p[0], p[1]) for p in geom.exterior.coords]
+                        centroid = get_valid_land_point(poly_coords, self.dem_mgr)
+                        
+                        self.desa.append({
+                            'id': len(self.desa),
+                            'name': str(name),
+                            'population': pop,
+                            'centroid_lat': centroid[0],
+                            'centroid_lon': centroid[1],
+                            'polygon': poly_coords
+                        })
+                    
+                    logger.info(f"✅ Loaded {len(self.desa)} settlements from {fname}")
+                    return
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to load {fname}: {e}")
+        
+        logger.warning("⚠️  No settlements loaded from Pemukiman.geojson or shapefile!")
     
     def _build_tes_cache(self):
         """Scan direktori untuk TES / shelter."""
@@ -1478,42 +1657,88 @@ class EvacuationABMSolver:
         Supports: wave_frames + grid_info (from swe_solver) AND flood_polygons.
         """
         if not swe_output or not isinstance(swe_output, dict):
+            logger.warning("[ABM] set_swe_results: swe_output is None or not dict")
             return
+        
         self.swe_results = swe_output
         self._flood_grids = {}       # t_min -> set((j, i))
         self._wave_arrival = {}      # (j, i) -> t_arrival_min
         self._inundation_kdtree = None
+        
+        logger.info(f"[ABM] set_swe_results called with swe_output keys: {list(swe_output.keys())}")
 
 # ── Normalize grid_info from SWE format ──
         raw_gi = swe_output.get('grid_info', {})
         shape = raw_gi.get('shape', [])
         
-        # Ambil points dari swe_output untuk menghitung BBOX yang akurat
-        # Jika SWE mengembalikan 'points' (list of tuples), gunakan itu.
-        points = swe_output.get('points', [])
-
-        if points:
-            # Gunakan fungsi core yang Anda miliki
-            from backend.simulations.core import bbox_from_points
-            min_lon, min_lat, max_lon, max_lat = bbox_from_points(points)
+        # ── Try to extract grid metadata from inundation_geojson first ──
+        inundation_gj = swe_output.get('inundation_geojson', {})
+        logger.info(f"[ABM] inundation_geojson present: {bool(inundation_gj)}, "
+                   f"keys: {list(inundation_gj.keys()) if inundation_gj else 'None'}")
+        
+        if inundation_gj:
+            # Grid metadata bisa ada di root level inundation_geojson
+            if 'lat_min' in inundation_gj and 'lat_max' in inundation_gj:
+                min_lat = float(inundation_gj.get('lat_min', 0))
+                max_lat = float(inundation_gj.get('lat_max', 0))
+                min_lon = float(inundation_gj.get('lon_min', 0))
+                max_lon = float(inundation_gj.get('lon_max', 0))
+                ny = int(inundation_gj.get('ny', 1))
+                nx = int(inundation_gj.get('nx', 1))
+                
+                self._grid_meta = {
+                    'lat_min': min_lat,
+                    'lat_max': max_lat,
+                    'lon_min': min_lon,
+                    'lon_max': max_lon,
+                    'ny': ny,
+                    'nx': nx,
+                }
+                logger.info(f"✅ Grid meta extracted from inundation_geojson: {self._grid_meta}")
+            else:
+                # Fallback ke lama approach jika tidak ada dalam geojson
+                lons = inundation_gj.get('lons', [])
+                lats = inundation_gj.get('lats', [])
+                min_lat = min(lats) if lats else 0.0
+                max_lat = max(lats) if lats else 0.0
+                min_lon = min(lons) if lons else 0.0
+                max_lon = max(lons) if lons else 0.0
+                
+                self._grid_meta = {
+                    'lat_min': min_lat,
+                    'lat_max': max_lat,
+                    'lon_min': min_lon,
+                    'lon_max': max_lon,
+                    'ny': inundation_gj.get('ny', int(len(lats))),
+                    'nx': inundation_gj.get('nx', int(len(lons))),
+                }
+                logger.info(f"✅ Grid meta from inundation lats/lons: {self._grid_meta}")
         else:
-            # Fallback jika points tidak ada, gunakan lats/lons list atau raw metadata
-            lons = raw_gi.get('lons', [])
-            lats = raw_gi.get('lats', [])
-            min_lat = min(lats) if lats else raw_gi.get('lat_min', 0)
-            max_lat = max(lats) if lats else raw_gi.get('lat_max', 0)
-            min_lon = min(lons) if lons else raw_gi.get('lon_min', 0)
-            max_lon = max(lons) if lons else raw_gi.get('lon_max', 0)
+            # Original fallback: extract from swe_output root or grid_info
+            logger.warning("[ABM] inundation_geojson is empty, falling back to grid_info/points")
+            points = swe_output.get('points', [])
+            if points:
+                # Gunakan fungsi core yang Anda miliki
+                from backend.simulations.core import bbox_from_points
+                min_lon, min_lat, max_lon, max_lat = bbox_from_points(points)
+            else:
+                # Fallback jika points tidak ada, gunakan lats/lons list atau raw metadata
+                lons = raw_gi.get('lons', [])
+                lats = raw_gi.get('lats', [])
+                min_lat = min(lats) if lats else raw_gi.get('lat_min', 0)
+                max_lat = max(lats) if lats else raw_gi.get('lat_max', 0)
+                min_lon = min(lons) if lons else raw_gi.get('lon_min', 0)
+                max_lon = max(lons) if lons else raw_gi.get('lon_max', 0)
 
-        self._grid_meta = {
-            'lat_min': min_lat,
-            'lat_max': max_lat,
-            'lon_min': min_lon,
-            'lon_max': max_lon,
-            'ny': shape[0] if len(shape) >= 2 else raw_gi.get('ny', 1),
-            'nx': shape[1] if len(shape) >= 2 else raw_gi.get('nx', 1),
-        }
-        logger.info(f"Grid meta normalized: {self._grid_meta}")
+            self._grid_meta = {
+                'lat_min': min_lat,
+                'lat_max': max_lat,
+                'lon_min': min_lon,
+                'lon_max': max_lon,
+                'ny': shape[0] if len(shape) >= 2 else raw_gi.get('ny', 1),
+                'nx': shape[1] if len(shape) >= 2 else raw_gi.get('nx', 1),
+            }
+            logger.info(f"Grid meta normalized from swe_output: {self._grid_meta}")
 
         FLOOD_THRESHOLD_M = 0.1
 
@@ -1572,9 +1797,12 @@ class EvacuationABMSolver:
                 pts = [[f["geometry"]["coordinates"][1], f["geometry"]["coordinates"][0]] for f in features]
                 if pts:
                     self._inundation_kdtree = cKDTree(pts)
-                    logger.info(f"Inundation KDTree: {len(pts)} points")
+                    # Extract flood depths from features for nearby desa lookup
+                    self._inundation_depths = [f.get("properties", {}).get("flood_depth", 0.0) for f in features]
+                    logger.info(f"Inundation KDTree: {len(pts)} points with depth data")
             except Exception as e:
                 logger.warning(f"KDTree build failed: {e}")
+                self._inundation_depths = []
 
         # ── Also pass flood_polygons to router ──
         flood_polygons = swe_output.get('flood_polygons', [])
@@ -1803,6 +2031,9 @@ class EvacuationABMSolver:
         has_kdtree = getattr(self, '_inundation_kdtree', None) is not None
         has_swe = bool(self.swe_results)
         
+        logger.info(f"[ABM] _generate_agents START: has_kdtree={has_kdtree}, has_swe={has_swe}, "
+                   f"swe_results={'present' if self.swe_results else 'None'}")
+        
         # Modal split modes dan probabilities
         transport_modes = list(MODAL_SPLIT.keys())
         transport_probs = list(MODAL_SPLIT.values())
@@ -1814,6 +2045,10 @@ class EvacuationABMSolver:
             stats = self.swe_results.get('statistics', {})
             tsunami_arrival_s = float(stats.get('arrival_time_min', float('inf'))) * 60.0
             max_runup_m = float(self.swe_results.get('runup_m', 5.0))
+            logger.info(f"[ABM] SWE data: tsunami_arrival={tsunami_arrival_s:.1f}s, max_runup={max_runup_m:.1f}m")
+        
+        debug_count = 0  # Track how many desa pass each filter
+        included_count = 0
         
         for desa in self.cache.desa:
             if desa['population'] <= 0:
@@ -1821,30 +2056,57 @@ class EvacuationABMSolver:
             
             dlat = desa['centroid_lat']
             dlon = desa['centroid_lon']
+            desa_name = desa.get('name', f"NONAME_{dlat:.4f}_{dlon:.4f}")
             
             # ── Filter: only generate agents for desa in/near inundation zone ──
             is_affected = False
             flood_depth_at_desa = 0.0
+            filter_reason = ""
             
             if has_kdtree:
-                # Increased distance from 0.008 (~890m) to 0.05 (~5.5km) to include more desa
-                dist, idx = self._inundation_kdtree.query([dlat, dlon], distance_upper_bound=0.05)
+                # Distance threshold: 10km to catch more desa in tsunami impact zone
+                dist, idx = self._inundation_kdtree.query([dlat, dlon], distance_upper_bound=0.10)
                 is_affected = (dist != float('inf'))
-                if is_affected and hasattr(self, '_inundation_depths') and idx < len(self._inundation_depths):
-                    flood_depth_at_desa = self._inundation_depths[idx]
+                if is_affected:
+                    filter_reason = f"KDTree match (dist={dist:.5f}°)"
+                    if hasattr(self, '_inundation_depths') and idx < len(self._inundation_depths):
+                        flood_depth_at_desa = self._inundation_depths[idx]
+                else:
+                    filter_reason = f"KDTree no match (dist={dist:.5f}°)"
+            
             if not is_affected and self.dem_mgr:
                 try:
                     elev, _ = self.dem_mgr.query(dlon, dlat)
                     if elev is not None:
                         runup = max_runup_m
-                        is_affected = float(elev) <= runup + 3.0
-                except Exception:
-                    pass
+                        # Relaxed filter: include desa <= runup + 5m (previously 3m)
+                        is_affected = float(elev) <= runup + 5.0
+                        filter_reason = f"DEM check: elev={float(elev):.1f}m <= runup+5m={runup+5:.1f}m: {is_affected}"
+                except Exception as e:
+                    filter_reason = f"DEM query error: {e}"
+            
+            # ── IMPORTANT FALLBACK: If no inundation data at all, generate from ALL desa ──
+            # This ensures agents appear even if SWE integration has issues
             if not is_affected and not has_kdtree and not has_swe:
-                is_affected = True  # No inundation data → include all
+                is_affected = True # No inundation data → include all
+                filter_reason = "Fallback: no SWE/KDTree data"
+            
+            # ── Additional fallback: distance to coast < 3km → always include ──
+            if not is_affected:
+                desa_coast_dist_check = self._distance_to_coast_km(dlat, dlon)
+                if desa_coast_dist_check < 3.0:
+                    is_affected = True  # Close to coast → include
+                    filter_reason = f"Fallback: coast_dist={desa_coast_dist_check:.2f}km < 3km"
             
             if not is_affected:
+                debug_count += 1
+                if debug_count <= 10:  # Log first 10 skipped
+                    logger.info(f"[ABM] Desa #{debug_count} {desa_name} ({dlat:.6f},{dlon:.6f}) SKIPPED: {filter_reason}")
                 continue
+            
+            included_count += 1
+            if included_count <= 10:  # Log first 10 included
+                logger.info(f"[ABM] Desa #{included_count} {desa_name} ({dlat:.6f},{dlon:.6f}) ✅ INCLUDED: {filter_reason}")
             
             # Hitung distance to coast untuk desa ini
             desa_coast_dist = self._distance_to_coast_km(dlat, dlon)
@@ -1867,14 +2129,17 @@ class EvacuationABMSolver:
             # Populasi per agent
             n_agents = min(agents_per_desa, desa['population'])
             if n_agents == 0:
+                logger.debug(f"[ABM] Desa {desa_name} SKIPPED: n_agents=0 (pop={desa['population']}, agents_per_desa={agents_per_desa})")
                 continue
             pop_per_agent = max(1, desa['population'] // n_agents)
             
             # Nearest node dari centroid desa
             home_node = self.graph.nearest_node(dlat, dlon)
             if home_node is None:
-                logger.warning(f"No graph node near desa {desa['name']}")
+                logger.warning(f"[ABM] Desa {desa_name} SKIPPED: No graph node near ({dlat:.6f}, {dlon:.6f})")
                 continue
+            
+            logger.debug(f"[ABM] Desa {desa_name} PASSED: will create {n_agents} agents (home_node={home_node})")
             
             # Wave arrival time for this desa
             wave_t = self._wave_arrival_at(dlat, dlon)
